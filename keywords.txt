@@ -1,0 +1,40 @@
+#######################################
+# Syntax Coloring Map For Aranet4
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+Aranet4	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+readData	KEYWORD2
+isPaired	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+co2	KEYWORD2
+temperature	KEYWORD2
+pressure	KEYWORD2
+humidity	KEYWORD2
+battery	KEYWORD2
+interval	KEYWORD2
+ago	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+AR4_OK	LITERAL1
+AR4_FAIL	LITERAL1
+AR4_ERR_NO_GATT_SERVICE	LITERAL1
+AR4_ERR_NO_GATT_CHAR	LITERAL1
+AR4_ERR_NO_CLIENT	LITERAL1
+AR4_ERR_NOT_CONNECTED	LITERAL1
+AR4_ERR_UNAUTHORIZED	LITERAL1
