@@ -58,6 +58,8 @@ bool Aranet4::isPaired(esp_bd_addr_t addr) {
  */
 ar4_err_t Aranet4::connect(esp_bd_addr_t addr) {
     pClient = BLEDevice::createClient();
+    aranetClientCallbacks = new Aranet4ClientCallbacks();
+    pClient->setClientCallbacks(aranetClientCallbacks);
 
     bool stat = pClient->connect(addr, BLE_ADDR_TYPE_RANDOM);
 
@@ -66,18 +68,17 @@ ar4_err_t Aranet4::connect(esp_bd_addr_t addr) {
         return AR4_ERR_NOT_CONNECTED;
     }
 
-    // Wait for auth callback
-    while(!aranetCallbacks->isConnected()) {
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+    long timeout = millis() + 5000;
+
+    while (!aranetClientCallbacks->isConnected()) {
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        if (millis() > timeout) {
+            return AR4_ERR_TIMEOUT;
+        }
     }
 
-    if (aranetCallbacks->isAuthenticated()) {
-        aranetCallbacks->onConnected();
-        return AR4_OK;
-    }
-
-    aranetCallbacks->onFailed(AR4_ERR_UNAUTHORIZED);
-    return AR4_ERR_UNAUTHORIZED;
+    aranetCallbacks->onConnected();
+    return AR4_OK;
 }
 
 /**
@@ -169,8 +170,7 @@ ar4_err_t Aranet4::getStatus() {
 ar4_err_t Aranet4::getValue(BLEUUID serviceUuid, BLEUUID charUuid, uint8_t* data, uint16_t* len) {
     if (pClient == nullptr) return AR4_ERR_NO_CLIENT;
 
-    if (!aranetCallbacks->isAuthenticated()) return AR4_ERR_UNAUTHORIZED;
-    if (!aranetCallbacks->isConnected())     return AR4_ERR_NOT_CONNECTED;
+    if (!aranetClientCallbacks->isConnected())  return AR4_ERR_NOT_CONNECTED;
 
     BLERemoteService* pRemoteService = pClient->getService(serviceUuid);
     if (pRemoteService == nullptr) {

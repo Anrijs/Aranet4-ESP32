@@ -23,6 +23,7 @@ typedef uint16_t ar4_err_t;
 #define AR4_ERR_NO_CLIENT          0x03
 #define AR4_ERR_NOT_CONNECTED      0x04
 #define AR4_ERR_UNAUTHORIZED       0x05
+#define AR4_ERR_TIMEOUT            0x06
 
 // Aranet4 specific codes
 #define AR4_PARAM_TEMPERATURE   1
@@ -73,19 +74,41 @@ typedef struct AranetData {
 };
 #pragma pack(pop)
 
+class Aranet4ClientCallbacks : public BLEClientCallbacks {
+private:
+    bool connected = false;
+    void onConnect(BLEClient* pclient) {
+        connected = true;
+    }
+
+    void onDisconnect(BLEClient* pclient) {
+        connected = false;
+    }
+
+public:
+    bool isConnected() { return connected; }
+};
+
 
 class Aranet4Callbacks : public BLESecurityCallbacks {
+  public:
+    bool    isAuthenticated() { return authenticated; }
+
+    virtual void onConnected() = 0;
+    virtual void onFailed(uint8_t code) = 0;
+    virtual void onDisconnected() = 0;
 private:
-    bool conencted = false;
-    bool authenticated = false;
+    bool authenticated = true;
 
     uint32_t onPassKeyRequest() {
         return onPinRequested();
     }
 
     void onAuthenticationComplete(esp_ble_auth_cmpl_t auth_cmpl) {
-        conencted = true;
         authenticated = auth_cmpl.success;
+        if (!authenticated) {
+            onFailed(AR4_ERR_UNAUTHORIZED);
+        }
     }
 
     // Not required for what we are doing
@@ -95,14 +118,6 @@ private:
 
     // Callback when Araner4 requires PIN confirm
     virtual uint32_t onPinRequested() = 0;
-
-public:
-    bool    isConnected() { return conencted; }
-    bool    isAuthenticated() { return authenticated; }
-
-    virtual void onConnected() = 0;
-    virtual void onFailed(uint8_t code) = 0;
-    virtual void onDisconnected() = 0;
 };
 
 class Aranet4 {
@@ -124,6 +139,7 @@ public:
     bool         isPaired(esp_bd_addr_t addr);
 private:
     Aranet4Callbacks* aranetCallbacks = nullptr;
+    Aranet4ClientCallbacks* aranetClientCallbacks = nullptr;
     BLEClient* pClient = nullptr;
     ar4_err_t status = AR4_OK;
 
