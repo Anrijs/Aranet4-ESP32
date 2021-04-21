@@ -5,7 +5,7 @@
  *  Url:        https://github.com/Anrijs/Aranet4-ESP32
  */
 
-#include "aranet4.h"
+#include "Aranet4.h"
 #include "Arduino.h"
 
 /**
@@ -25,6 +25,9 @@ void Aranet4::init(Aranet4Callbacks* callbacks) {
     pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
     pSecurity->setCapability(ESP_IO_CAP_IN);
     pSecurity->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+
+    pClient = BLEDevice::createClient();
+    pClient->setClientCallbacks(aranetClientCallbacks);
 }
 
 /**
@@ -57,10 +60,6 @@ bool Aranet4::isPaired(esp_bd_addr_t addr) {
  * @return Connection status code (AR4_CONN_*)
  */
 ar4_err_t Aranet4::connect(esp_bd_addr_t addr) {
-    pClient = BLEDevice::createClient();
-    aranetClientCallbacks = new Aranet4ClientCallbacks();
-    pClient->setClientCallbacks(aranetClientCallbacks);
-
     bool stat = pClient->connect(addr, BLE_ADDR_TYPE_RANDOM);
 
     if (!stat) {
@@ -148,8 +147,22 @@ String Aranet4::getName() {
 /**
  * @brief Aranet4 software version
  */
-String Aranet4::getVersion() {
+String Aranet4::getSwVersion() {
     return getStringValue(UUID_Common, UUID_Common_SwRev);
+}
+
+/**
+ * @brief Aranet4 firmware version
+ */
+String Aranet4::getFwVersion() {
+    return getStringValue(UUID_Common, UUID_Common_FwRev);
+}
+
+/**
+ * @brief Aranet4 hardware version
+ */
+String Aranet4::getHwVersion() {
+    return getStringValue(UUID_Common, UUID_Common_HwRev);
 }
 
 /**

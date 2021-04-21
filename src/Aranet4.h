@@ -58,6 +58,7 @@ static BLEUUID UUID_Common_Manufacturer ("00002a29-0000-1000-8000-00805f9b34fb")
 static BLEUUID UUID_Common_Model        ("00002a24-0000-1000-8000-00805f9b34fb");
 static BLEUUID UUID_Common_Serial       ("00002a25-0000-1000-8000-00805f9b34fb");
 static BLEUUID UUID_Common_HwRev        ("00002a27-0000-1000-8000-00805f9b34fb");
+static BLEUUID UUID_Common_FwRev        ("00002a26-0000-1000-8000-00805f9b34fb");
 static BLEUUID UUID_Common_SwRev        ("00002a28-0000-1000-8000-00805f9b34fb");
 static BLEUUID UUID_Common_Battery      ("00002a19-0000-1000-8000-00805f9b34fb");
 
@@ -132,14 +133,16 @@ public:
     uint16_t    getTotalReadings();
     uint16_t    getInterval();
     String      getName();
-    String      getVersion();
+    String      getSwVersion();
+    String      getFwVersion();
+    String      getHwVersion();
 
-    ar4_err_t    getStatus();
+    ar4_err_t   getStatus();
 
-    bool         isPaired(esp_bd_addr_t addr);
+    static bool isPaired(esp_bd_addr_t addr);
 private:
     Aranet4Callbacks* aranetCallbacks = nullptr;
-    Aranet4ClientCallbacks* aranetClientCallbacks = nullptr;
+    Aranet4ClientCallbacks* aranetClientCallbacks = new Aranet4ClientCallbacks();
     BLEClient* pClient = nullptr;
     ar4_err_t status = AR4_OK;
 
