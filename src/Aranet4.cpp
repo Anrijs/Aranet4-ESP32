@@ -57,6 +57,10 @@ bool Aranet4::isPaired(esp_bd_addr_t addr) {
  * @return Connection status code (AR4_CONN_*)
  */
 ar4_err_t Aranet4::connect(esp_bd_addr_t addr) {
+    if (!BLEDevice::getInitialized()) {
+        return AR4_FAIL;
+    }
+
     pClient = BLEDevice::createClient();
     pClient->setClientCallbacks(aranetClientCallbacks);
     bool stat = pClient->connect(addr, BLE_ADDR_TYPE_RANDOM);
