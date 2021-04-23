@@ -25,9 +25,6 @@ void Aranet4::init(Aranet4Callbacks* callbacks) {
     pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
     pSecurity->setCapability(ESP_IO_CAP_IN);
     pSecurity->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-
-    pClient = BLEDevice::createClient();
-    pClient->setClientCallbacks(aranetClientCallbacks);
 }
 
 /**
@@ -60,6 +57,8 @@ bool Aranet4::isPaired(esp_bd_addr_t addr) {
  * @return Connection status code (AR4_CONN_*)
  */
 ar4_err_t Aranet4::connect(esp_bd_addr_t addr) {
+    pClient = BLEDevice::createClient();
+    pClient->setClientCallbacks(aranetClientCallbacks);
     bool stat = pClient->connect(addr, BLE_ADDR_TYPE_RANDOM);
 
     if (!stat) {
@@ -103,6 +102,7 @@ void Aranet4::disconnect() {
     }
 
     aranetCallbacks->onDisconnected();
+    delete pClient;
 }
 
 /**
