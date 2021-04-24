@@ -94,10 +94,6 @@ public:
 class Aranet4Callbacks : public BLESecurityCallbacks {
   public:
     bool    isAuthenticated() { return authenticated; }
-
-    virtual void onConnected() = 0;
-    virtual void onFailed(uint8_t code) = 0;
-    virtual void onDisconnected() = 0;
 private:
     bool authenticated = true;
 
@@ -107,9 +103,6 @@ private:
 
     void onAuthenticationComplete(esp_ble_auth_cmpl_t auth_cmpl) {
         authenticated = auth_cmpl.success;
-        if (!authenticated) {
-            onFailed(AR4_ERR_UNAUTHORIZED);
-        }
     }
 
     // Not required for what we are doing
@@ -123,9 +116,11 @@ private:
 
 class Aranet4 {
 public:
-    void      init(Aranet4Callbacks* callbacks);
-    ar4_err_t connect(esp_bd_addr_t addr);
-    ar4_err_t connect(String addr);
+    Aranet4();
+    ~Aranet4();
+    static void init(Aranet4Callbacks* callbacks);
+    ar4_err_t connect(esp_bd_addr_t addr, esp_ble_addr_type_t type = BLE_ADDR_TYPE_RANDOM);
+    ar4_err_t connect(String addr, esp_ble_addr_type_t type = BLE_ADDR_TYPE_RANDOM);
     void      disconnect();
 
     AranetData  getCurrentReadings();
@@ -141,7 +136,6 @@ public:
 
     static bool isPaired(esp_bd_addr_t addr);
 private:
-    Aranet4Callbacks* aranetCallbacks = nullptr;
     Aranet4ClientCallbacks* aranetClientCallbacks = new Aranet4ClientCallbacks();
     BLEClient* pClient = nullptr;
     ar4_err_t status = AR4_OK;

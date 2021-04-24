@@ -8,23 +8,30 @@
 #include "Aranet4.h"
 #include "Arduino.h"
 
+Aranet4::Aranet4() {
+    // nothing to do
+}
+
+Aranet4::~Aranet4() {
+    delete(pClient);
+    delete(aranetClientCallbacks);
+}
+
 /**
  * @brief Initialize ESP32 bluetooth device and security profile
  * @param [in] cllbacks Pointer to Aranet4Callbacks class callback
  */
 void Aranet4::init(Aranet4Callbacks* callbacks) {
-    aranetCallbacks = callbacks;
-
     // Set up bluetooth device and security
     BLEDevice::init("");
     BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
-    BLEDevice::setSecurityCallbacks(aranetCallbacks);
+    BLEDevice::setSecurityCallbacks(callbacks);
 
-    BLESecurity *pSecurity = new BLESecurity();
-    pSecurity->setKeySize();
-    pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
-    pSecurity->setCapability(ESP_IO_CAP_IN);
-    pSecurity->setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
+    BLESecurity pSecurity;
+    pSecurity.setKeySize();
+    pSecurity.setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
+    pSecurity.setCapability(ESP_IO_CAP_IN);
+    pSecurity.setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
 }
 
 /**
@@ -56,17 +63,17 @@ bool Aranet4::isPaired(esp_bd_addr_t addr) {
  * @param [in] addr Address of bluetooth device
  * @return Connection status code (AR4_CONN_*)
  */
-ar4_err_t Aranet4::connect(esp_bd_addr_t addr) {
+ar4_err_t Aranet4::connect(esp_bd_addr_t addr, esp_ble_addr_type_t type) {
     if (!BLEDevice::getInitialized()) {
         return AR4_FAIL;
     }
+    delete pClient;
 
     pClient = BLEDevice::createClient();
     pClient->setClientCallbacks(aranetClientCallbacks);
-    bool stat = pClient->connect(addr, BLE_ADDR_TYPE_RANDOM);
+    bool stat = pClient->connect(addr, type);
 
     if (!stat) {
-        aranetCallbacks->onFailed(AR4_ERR_NOT_CONNECTED);
         return AR4_ERR_NOT_CONNECTED;
     }
 
@@ -79,7 +86,6 @@ ar4_err_t Aranet4::connect(esp_bd_addr_t addr) {
         }
     }
 
-    aranetCallbacks->onConnected();
     return AR4_OK;
 }
 
@@ -88,11 +94,11 @@ ar4_err_t Aranet4::connect(esp_bd_addr_t addr) {
  * @param [in] addr Address of bluetooth device
  * @return Connection status code (AR4_CONN_*)
  */
-ar4_err_t Aranet4::connect(String addr) {
+ar4_err_t Aranet4::connect(String addr, esp_ble_addr_type_t type) {
     BLEAddress bleAddr = BLEAddress(addr.c_str());
     esp_bd_addr_t* native = bleAddr.getNative();
 
-    return connect(*bleAddr.getNative());
+    return connect(*bleAddr.getNative(), type);
 }
 
 /**
@@ -104,9 +110,6 @@ void Aranet4::disconnect() {
         vTaskDelay(500 / portTICK_PERIOD_MS);
         pClient->disconnect();
     }
-
-    aranetCallbacks->onDisconnected();
-    delete pClient;
 }
 
 /**

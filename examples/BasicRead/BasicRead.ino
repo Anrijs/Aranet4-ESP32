@@ -10,45 +10,32 @@
 
 #include "Aranet4.h"
 
+Aranet4 ar4;
+// Address can be string or byte array
+// uint8_t addr[] = {0xc00 0x01, 0x02, 0x03, 0x04, 0x05 };
+String addr = "00:01:02:03:04:05"; // Put your Aranet4 MAC address here
+
 // Create custom callback to allow PIN code input.
 // In this example, when PIN is requested, you must enter it in serial console.
 class MyAranet4Callbacks: public Aranet4Callbacks {
     uint32_t onPinRequested() {
-      Serial.println("PIN Requested. Enter PIN in serial console.");
-      while(Serial.available() == 0)
-          vTaskDelay(500 / portTICK_PERIOD_MS);
-
-      return  Serial.readString().toInt();
-    }
-
-    void onConnected() {
-      Serial.println("Device conencted");
-    }
-
-    void onFailed(uint8_t code) {
-        Serial.print("Connection failed: ");
-        switch (code) {
-            case AR4_ERR_NOT_CONNECTED: Serial.println("not connected"); break;
-            case AR4_ERR_UNAUTHORIZED: Serial.println("unauthorized"); break;
-            default: Serial.println("unknown)"); break;
-        }
-    }
-
-    void onDisconnected() {
-        Serial.println("Aranet4 disconencted");
+        Serial.println("PIN Requested. Enter PIN in serial console.");
+        while(Serial.available() == 0)
+            vTaskDelay(500 / portTICK_PERIOD_MS);
+        return  Serial.readString().toInt();
     }
 };
- 
+
 void setup() {
     Serial.begin(115200);
     Serial.println("Init");
 
-    // Address can be string or byte array
-    // uint8_t addr[] = {0xc00 0x01, 0x02, 0x03, 0x04, 0x05 };
-    String addr = "00:01:02:03:04:05"; // Put your Aranet4 MAC address here
+    // Set up bluettoth security and callbacks
+    Aranet4::init(new MyAranet4Callbacks());
+}
 
-    Aranet4 ar4;
-    ar4.init(new MyAranet4Callbacks());
+void loop() {
+    long sleep = 1000 * 60; // 1 minute
 
     Serial.println("Connecting...");
     if (ar4.connect(addr) == AR4_OK) {
@@ -63,14 +50,15 @@ void setup() {
             Serial.printf("Battery:      %i %%\n",  data.battery);
             Serial.printf("Interval:     %i s\n",   data.interval);
             Serial.printf("Ago:          %i s\n",   data.ago);
+
+            sleep = (data.interval - data.ago) * 1000;
         } else {
            Serial.printf("Aranet4 read failed: (%i)\n", ar4.getStatus());
         }
     }
 
     ar4.disconnect();
-}
 
-void loop() {
-
+    Serial.printf("Waiting %i seconds for next measurement\n", sleep / 1000);
+    delay(sleep); // Wait until next measurement
 }
