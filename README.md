@@ -13,7 +13,7 @@ class MyAranet4Callbacks: public Aranet4Callbacks {
     }
 };
 ```
-2. Initialize Initialize ESP32 bluetooth device and security profile in `setup()` function:
+2. Initialize ESP32 bluetooth device and security profile in `setup()` function:
 ```cpp
 Aranet4::init(new  MyAranet4Callbacks());
 ```
