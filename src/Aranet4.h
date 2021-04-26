@@ -9,21 +9,18 @@
 #define __ARANET4_H
 
 #include "Arduino.h"
-#include "BLEDevice.h"
-#include "esp_gap_bt_api.h"
+#include <NimBLEDevice.h>
 
 typedef uint16_t ar4_err_t;
 
 // ar4_err_t Status/Error codes
-#define AR4_OK      0       // ar4_err_t value indicating success (no error)
-#define AR4_FAIL    -1      // Generic ar4_err_t code indicating failure 
+#define AR4_OK           0 // ar4_err_t value indicating success (no error)
+#define AR4_FAIL        -1 // Generic ar4_err_t code indicating failure
 
 #define AR4_ERR_NO_GATT_SERVICE    0x01
 #define AR4_ERR_NO_GATT_CHAR       0x02
 #define AR4_ERR_NO_CLIENT          0x03
 #define AR4_ERR_NOT_CONNECTED      0x04
-#define AR4_ERR_UNAUTHORIZED       0x05
-#define AR4_ERR_TIMEOUT            0x06
 
 // Aranet4 specific codes
 #define AR4_PARAM_TEMPERATURE   1
@@ -38,29 +35,29 @@ typedef uint16_t ar4_err_t;
 #define AR4_NOTIFY_HISTORY      0x0031
 
 // Service UUIDs
-static BLEUUID UUID_Aranet4  ("f0cd1400-95da-4f4b-9ac8-aa55d312af0c");
-static BLEUUID UUID_Generic  ("00001800-0000-1000-8000-00805f9b34fb");
-static BLEUUID UUID_Common   ("0000180a-0000-1000-8000-00805f9b34fb");
+static NimBLEUUID UUID_Aranet4  ("f0cd1400-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Generic  ("1800");
+static NimBLEUUID UUID_Common   ("180a");
 
 // Read / Aranet service
-static BLEUUID UUID_Aranet4_CurrentReadings     ("f0cd1503-95da-4f4b-9ac8-aa55d312af0c");
-static BLEUUID UUID_Aranet4_CurrentReadingsDet  ("f0cd3001-95da-4f4b-9ac8-aa55d312af0c");
-static BLEUUID UUID_Aranet4_Interval            ("f0cd2002-95da-4f4b-9ac8-aa55d312af0c");
-static BLEUUID UUID_Aranet4_SecondsSinceUpdate  ("f0cd2004-95da-4f4b-9ac8-aa55d312af0c");
-static BLEUUID UUID_Aranet4_TotalReadings       ("f0cd2001-95da-4f4b-9ac8-aa55d312af0c");
-static BLEUUID UUID_Aranet4_Cmd                 ("f0cd1402-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_CurrentReadings     ("f0cd1503-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_CurrentReadingsDet  ("f0cd3001-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_Interval            ("f0cd2002-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_SecondsSinceUpdate  ("f0cd2004-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_TotalReadings       ("f0cd2001-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_Cmd                 ("f0cd1402-95da-4f4b-9ac8-aa55d312af0c");
 
 // Read / Generic servce
-static BLEUUID UUID_Generic_DeviceName ("00002a00-0000-1000-8000-00805f9b34fb");
+static NimBLEUUID UUID_Generic_DeviceName ("2a00");
 
 //Read / Common servce
-static BLEUUID UUID_Common_Manufacturer ("00002a29-0000-1000-8000-00805f9b34fb");
-static BLEUUID UUID_Common_Model        ("00002a24-0000-1000-8000-00805f9b34fb");
-static BLEUUID UUID_Common_Serial       ("00002a25-0000-1000-8000-00805f9b34fb");
-static BLEUUID UUID_Common_HwRev        ("00002a27-0000-1000-8000-00805f9b34fb");
-static BLEUUID UUID_Common_FwRev        ("00002a26-0000-1000-8000-00805f9b34fb");
-static BLEUUID UUID_Common_SwRev        ("00002a28-0000-1000-8000-00805f9b34fb");
-static BLEUUID UUID_Common_Battery      ("00002a19-0000-1000-8000-00805f9b34fb");
+static NimBLEUUID UUID_Common_Manufacturer ("2a29");
+static NimBLEUUID UUID_Common_Model        ("2a24");
+static NimBLEUUID UUID_Common_Serial       ("2a25");
+static NimBLEUUID UUID_Common_HwRev        ("2a27");
+static NimBLEUUID UUID_Common_FwRev        ("2a26");
+static NimBLEUUID UUID_Common_SwRev        ("2a28");
+static NimBLEUUID UUID_Common_Battery      ("2a19");
 
 #pragma pack(push, 1)
 typedef struct AranetData {
@@ -75,52 +72,24 @@ typedef struct AranetData {
 };
 #pragma pack(pop)
 
-class Aranet4ClientCallbacks : public BLEClientCallbacks {
-private:
-    bool connected = false;
-    void onConnect(BLEClient* pclient) {
-        connected = true;
-    }
-
-    void onDisconnect(BLEClient* pclient) {
-        connected = false;
-    }
-
-public:
-    bool isConnected() { return connected; }
-};
-
-
-class Aranet4Callbacks : public BLESecurityCallbacks {
-  public:
-    bool    isAuthenticated() { return authenticated; }
-private:
-    bool authenticated = true;
-
+class Aranet4Callbacks : public NimBLEClientCallbacks {
     uint32_t onPassKeyRequest() {
         return onPinRequested();
     }
 
-    void onAuthenticationComplete(esp_ble_auth_cmpl_t auth_cmpl) {
-        authenticated = auth_cmpl.success;
-    }
-
-    // Not required for what we are doing
-    void onPassKeyNotify(uint32_t pass_key) { }
-    bool onConfirmPIN(uint32_t pass_key) { return false; }
-    bool onSecurityRequest() { return true; }
-
-    // Callback when Araner4 requires PIN confirm
     virtual uint32_t onPinRequested() = 0;
 };
 
 class Aranet4 {
 public:
-    Aranet4();
+    Aranet4(Aranet4Callbacks* callbacks);
     ~Aranet4();
-    static void init(Aranet4Callbacks* callbacks);
-    ar4_err_t connect(esp_bd_addr_t addr, esp_ble_addr_type_t type = BLE_ADDR_TYPE_RANDOM);
-    ar4_err_t connect(String addr, esp_ble_addr_type_t type = BLE_ADDR_TYPE_RANDOM);
+    static void init();
+    ar4_err_t connect(NimBLEAdvertisedDevice* adv, bool secure = true);
+    ar4_err_t connect(NimBLEAddress addr, bool secure = true);
+    ar4_err_t connect(uint8_t* addr, uint8_t type = BLE_ADDR_RANDOM, bool secure = true);
+    ar4_err_t connect(String addr, uint8_t type = BLE_ADDR_RANDOM, bool secure = true);
+    ar4_err_t secureConnection();
     void      disconnect();
 
     AranetData  getCurrentReadings();
@@ -133,16 +102,13 @@ public:
     String      getHwVersion();
 
     ar4_err_t   getStatus();
-
-    static bool isPaired(esp_bd_addr_t addr);
 private:
-    Aranet4ClientCallbacks* aranetClientCallbacks = new Aranet4ClientCallbacks();
-    BLEClient* pClient = nullptr;
+    NimBLEClient* pClient = nullptr;
     ar4_err_t status = AR4_OK;
 
-    ar4_err_t getValue(BLEUUID serviceUuid, BLEUUID charUuid, uint8_t* data, uint16_t* len);
-    String    getStringValue(BLEUUID serviceUuid, BLEUUID charUuid);
-    uint16_t  getU16Value(BLEUUID serviceUuid, BLEUUID charUuid);
+    ar4_err_t getValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid, uint8_t* data, uint16_t* len);
+    String    getStringValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid);
+    uint16_t  getU16Value(NimBLEUUID serviceUuid, NimBLEUUID charUuid);
 };
 
 #endif

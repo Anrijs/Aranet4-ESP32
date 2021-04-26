@@ -8,107 +8,111 @@
 #include "Aranet4.h"
 #include "Arduino.h"
 
-Aranet4::Aranet4() {
+Aranet4::Aranet4(Aranet4Callbacks* callbacks) {
     // nothing to do
+    pClient = NimBLEDevice::createClient();
+    pClient->setClientCallbacks(callbacks, false);
 }
 
 Aranet4::~Aranet4() {
-    delete(pClient);
-    delete(aranetClientCallbacks);
+    disconnect();
+    NimBLEDevice::deleteClient(pClient);
 }
 
 /**
  * @brief Initialize ESP32 bluetooth device and security profile
  * @param [in] cllbacks Pointer to Aranet4Callbacks class callback
  */
-void Aranet4::init(Aranet4Callbacks* callbacks) {
+void Aranet4::init() {
     // Set up bluetooth device and security
-    BLEDevice::init("");
-    BLEDevice::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT);
-    BLEDevice::setSecurityCallbacks(callbacks);
-
-    BLESecurity pSecurity;
-    pSecurity.setKeySize();
-    pSecurity.setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
-    pSecurity.setCapability(ESP_IO_CAP_IN);
-    pSecurity.setRespEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
-}
-
-/**
- * @brief Check if device is paired
- * @param [in] addr Address of bluetooth device
- * @return True if device is paired
- */
-bool Aranet4::isPaired(esp_bd_addr_t addr) {
-    int count = esp_ble_get_bond_device_num();
-
-    esp_ble_bond_dev_t* devList = (esp_ble_bond_dev_t*) malloc(count * sizeof(esp_ble_bond_dev_t));
-    esp_err_t status = esp_ble_get_bond_device_list(&count, devList);
-
-    if (status != ESP_OK) {
-        Serial.println("Aranet4: Failed to get bonded device list");
-        return false;
-    }
-
-    for (int devId=0; devId<count; devId++) {
-        esp_ble_bond_dev_t paired = devList[devId];
-        if (memcmp(addr, paired.bd_addr, ESP_BD_ADDR_LEN) == 0) return true;
-    }
-
-    return false;
+    NimBLEDevice::init("");
+    NimBLEDevice::setPower(ESP_PWR_LVL_P9);
+    NimBLEDevice::setSecurityAuth(true, true, true);
+    NimBLEDevice::setSecurityIOCap(BLE_HS_IO_KEYBOARD_ONLY);
 }
 
 /**
  * @brief Connect to Aranet4 device
- * @param [in] addr Address of bluetooth device
- * @return Connection status code (AR4_CONN_*)
+ * @param [in] adv Advertised bluetooth device
+ * @param [in] secure Start in secure mode (bonded)
+ * @return status code
  */
-ar4_err_t Aranet4::connect(esp_bd_addr_t addr, esp_ble_addr_type_t type) {
-    if (!BLEDevice::getInitialized()) {
-        return AR4_FAIL;
+ar4_err_t Aranet4::connect(NimBLEAdvertisedDevice* adv, bool secure) {
+    if (pClient != nullptr && pClient->isConnected()) {
+        Serial.println("WARNING: Previous connection was not closed and will be disconnected.");
+        pClient->disconnect();
     }
-    delete pClient;
 
-    pClient = BLEDevice::createClient();
-    pClient->setClientCallbacks(aranetClientCallbacks);
-    bool stat = pClient->connect(addr, type);
-
-    if (!stat) {
+    if(pClient->connect(adv)) {
+        if (secure) return secureConnection();
+        return AR4_OK;
+    } else {
         return AR4_ERR_NOT_CONNECTED;
     }
 
-    long timeout = millis() + 5000;
-
-    while (!aranetClientCallbacks->isConnected()) {
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-        if (millis() > timeout) {
-            return AR4_ERR_TIMEOUT;
-        }
-    }
-
-    return AR4_OK;
+    return AR4_FAIL;
 }
 
 /**
  * @brief Connect to Aranet4 device
  * @param [in] addr Address of bluetooth device
- * @return Connection status code (AR4_CONN_*)
+ * @param [in] secure Start in secure mode (bonded)
+ * @return status code
  */
-ar4_err_t Aranet4::connect(String addr, esp_ble_addr_type_t type) {
-    BLEAddress bleAddr = BLEAddress(addr.c_str());
-    esp_bd_addr_t* native = bleAddr.getNative();
+ar4_err_t Aranet4::connect(NimBLEAddress addr, bool secure) {
+    if (pClient != nullptr && pClient->isConnected()) {
+        Serial.println("WARNING: Previous connection was not closed and will be disconnected.");
+        pClient->disconnect();
+    }
 
-    return connect(*bleAddr.getNative(), type);
+    if(pClient->connect(addr)) {
+        if (secure) return secureConnection();
+        return AR4_OK;
+    } else {
+        return AR4_ERR_NOT_CONNECTED;
+    }
+
+    return AR4_FAIL;
+}
+
+/**
+ * @brief Connect to Aranet4 device
+ * @param [in] addr Address of bluetooth device
+ * @param [in] secure Start in secure mode (bonded)
+ * @return status code
+ */
+ar4_err_t Aranet4::connect(uint8_t* addr, uint8_t type, bool secure) {
+    return connect(NimBLEAddress(addr, type), secure);
+}
+
+/**
+ * @brief Connect to Aranet4 device
+ * @param [in] addr Address of bluetooth device
+ * @param [in] secure Start in secure mode (bonded)
+ * @return status code
+ */
+ar4_err_t Aranet4::connect(String addr, uint8_t type, bool secure) {
+    std::string addrstr(addr.c_str());
+    return connect(NimBLEAddress(addrstr, type), secure);
+}
+
+/**
+ * @brief Start secure mode / bond device
+ * @return status code
+ */
+ar4_err_t Aranet4::secureConnection() {
+    if (pClient->secureConnection()) {
+        return AR4_OK;
+    }
+    return AR4_FAIL;
 }
 
 /**
  * @brief Disconnects from bluetooth device
  */
 void Aranet4::disconnect() {
-    if (pClient != nullptr) {
-        // Without delay, there could be crash
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-        pClient->disconnect();
+    if (pClient != nullptr && pClient->isConnected()) {
+      pClient->disconnect();
     }
 }
 
@@ -187,17 +191,17 @@ ar4_err_t Aranet4::getStatus() {
  * @param [in|out] Size of data on input, received data size on output (truncated if larger than input)
  * @return Read status code (AR4_READ_*)
  */
-ar4_err_t Aranet4::getValue(BLEUUID serviceUuid, BLEUUID charUuid, uint8_t* data, uint16_t* len) {
+ar4_err_t Aranet4::getValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid, uint8_t* data, uint16_t* len) {
     if (pClient == nullptr) return AR4_ERR_NO_CLIENT;
 
-    if (!aranetClientCallbacks->isConnected())  return AR4_ERR_NOT_CONNECTED;
+    if (!pClient->isConnected())  return AR4_ERR_NOT_CONNECTED;
 
-    BLERemoteService* pRemoteService = pClient->getService(serviceUuid);
+    NimBLERemoteService* pRemoteService = pClient->getService(serviceUuid);
     if (pRemoteService == nullptr) {
         return AR4_ERR_NO_GATT_SERVICE;
     }
 
-    BLERemoteCharacteristic* pRemoteCharacteristic = pRemoteService->getCharacteristic(charUuid);
+    NimBLERemoteCharacteristic* pRemoteCharacteristic = pRemoteService->getCharacteristic(charUuid);
     if (pRemoteCharacteristic == nullptr) {
         return AR4_ERR_NO_GATT_CHAR;
     }
@@ -219,7 +223,7 @@ ar4_err_t Aranet4::getValue(BLEUUID serviceUuid, BLEUUID charUuid, uint8_t* data
  * @param [in] charUuid GATT Char UUID to read
  * @return String value
  */
-String Aranet4::getStringValue(BLEUUID serviceUuid, BLEUUID charUuid) {
+String Aranet4::getStringValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid) {
     uint8_t buf[33];
     uint16_t len = 32;
     status = getValue(serviceUuid, charUuid, buf, &len);
@@ -233,7 +237,7 @@ String Aranet4::getStringValue(BLEUUID serviceUuid, BLEUUID charUuid) {
  * @param [in] charUuid GATT Char UUID to read
  * @return u16 value
  */
-uint16_t Aranet4::getU16Value(BLEUUID serviceUuid, BLEUUID charUuid) {
+uint16_t Aranet4::getU16Value(NimBLEUUID serviceUuid, NimBLEUUID charUuid) {
     uint16_t val = 0;
     uint16_t len = 2;
     status = getValue(serviceUuid, charUuid, (uint8_t *) &val, &len);
