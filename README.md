@@ -1,6 +1,10 @@
 
 # Aranet4 ESP32 client
 This library allows you to read data from Aranet4 devices using Bluetooth.
+
+## Requirements
+To save memory, this library is using NimBLE bluetooth stack. Install it from library manager or get it here: [h2zero/NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino)
+
 ## Usage example
 1. Create bluetooth callback, to allow pairing. In this example, when PIN is requested, you must enter it in serial console:
 ```cpp
