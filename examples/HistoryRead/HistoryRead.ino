@@ -50,7 +50,6 @@ void setup() {
 
         // We will request 25 latest measurements. This means start index will be [Total count] - [25] + [1]
         int start = count - MEASUREMENT_COUNT + 1;
-        Serial.printf("DO REQ %i ... %i\n", start, count);
         int recvd = ar4.getHistory(start, MEASUREMENT_COUNT, data);
 
         // Print fortmated data
