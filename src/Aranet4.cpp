@@ -8,8 +8,10 @@
 #include "Aranet4.h"
 #include "Arduino.h"
 
+// Queue to store history data
+QueueHandle_t Aranet4::historyQueue = xQueueCreate(120, sizeof(uint16_t));
+
 Aranet4::Aranet4(Aranet4Callbacks* callbacks) {
-    // nothing to do
     pClient = NimBLEDevice::createClient();
     pClient->setClientCallbacks(callbacks, false);
 }
@@ -248,4 +250,198 @@ uint16_t Aranet4::getU16Value(NimBLEUUID serviceUuid, NimBLEUUID charUuid) {
 
     status = AR4_FAIL;
     return 0;
+}
+
+/**
+ * @brief Writes command to Aranet
+ * @param [in] data Command data
+ * @param [in] len COm,mand data length
+ * @return write status
+ */
+ar4_err_t Aranet4::writeCmd(uint8_t* data, uint16_t len) {
+    if (pClient == nullptr) return AR4_ERR_NO_CLIENT;
+    if (!pClient->isConnected())  return AR4_ERR_NOT_CONNECTED;
+
+    NimBLERemoteService* pRemoteService = pClient->getService(UUID_Aranet4);
+    if (pRemoteService == nullptr) {
+        return AR4_ERR_NO_GATT_SERVICE;
+    }
+
+    NimBLERemoteCharacteristic* pRemoteCharacteristic = pRemoteService->getCharacteristic(UUID_Aranet4_Cmd);
+    if (pRemoteCharacteristic == nullptr) {
+        return AR4_ERR_NO_GATT_CHAR;
+    }
+
+    // Read the value of the characteristic.
+    if(pRemoteCharacteristic->canWrite()) {
+        if (pRemoteCharacteristic->writeValue(data, len, true)) return AR4_OK;
+    }
+    return AR4_FAIL;
+}
+
+/**
+ * @brief Callback for history subscriptions. This will store received data in historyQueue
+ */
+void Aranet4::historyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify) {
+    uint8_t param = pData[0];
+    uint16_t idx = pData[1] + (pData[2] << 8) - 1;
+    uint8_t count = pData[3];
+    uint16_t pos = 4;
+
+    Serial.printf("==== PARAM: %i,  IDX: %i,  COUNT: %i\n",param,idx,count);
+
+    while (count > 0 && pos < length) {
+        uint16_t val = pData[pos++];
+
+        if (param != AR4_PARAM_HUMIDITY) {
+            val += (pData[pos++] << 8);
+        }
+
+        xQueueSend(historyQueue, &val, portMAX_DELAY);
+        count -= 1;
+    }
+}
+
+/**
+ * @brief Subscribe and request history
+ * @param [in] cmd Command data. Must be 8 bytes.
+ * @return subscription status
+ */
+ar4_err_t Aranet4::subscribeHistory(uint8_t* cmd) {
+    if (pClient == nullptr) return AR4_ERR_NO_CLIENT;
+    if (!pClient->isConnected())  return AR4_ERR_NOT_CONNECTED;
+
+    NimBLERemoteService* pRemoteService = pClient->getService(UUID_Aranet4);
+    if (pRemoteService == nullptr) {
+         Serial.println("NO SERVC");
+        return AR4_ERR_NO_GATT_SERVICE;
+    }
+
+    NimBLERemoteCharacteristic* pRemoteCharacteristic = pRemoteService->getCharacteristic(UUID_Aranet4_Notify_History);
+    if (pRemoteCharacteristic == nullptr) {
+        Serial.println("NO CHAR");
+        return AR4_ERR_NO_GATT_CHAR;
+    }
+
+    pRemoteCharacteristic->unsubscribe(false);
+
+    if (writeCmd(cmd, 8) != AR4_OK) {
+        return AR4_FAIL;
+    }
+
+    if (pRemoteCharacteristic->subscribe(true, historyCallback)) {
+        return AR4_OK;
+    }
+
+    return AR4_FAIL;
+}
+
+/**
+ * @brief Reads history data in to array
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @param [in] param PArameter to fetch
+ * @return Received point count
+ */
+int Aranet4::getHistoryByParam(uint16_t start, uint16_t count, uint16_t* data, uint8_t param) {
+    if (start < 1) start = 1;
+
+    // id 1 is oldest
+    uint16_t end = start + count;
+    uint8_t cmd[] = {0x82,param,0x00,0x00,0x01,0x00,0x01,0x00};
+
+    memcpy(&cmd[4], (unsigned char*) &start, 2);
+    memcpy(&cmd[6], (unsigned char*) &end,   2);
+
+    status = subscribeHistory(cmd);
+    if (status != AR4_OK) return 0;
+
+    // wait for queue
+    uint16_t recvd = 0;
+    while (recvd < count) {
+        if (!xQueueReceive(historyQueue, &data[recvd], 10000 / portTICK_PERIOD_MS)) { // 1ms
+            Serial.println("History queue timeout");
+            break;
+        }
+        recvd++;
+    }
+    xQueueReset(historyQueue);
+    return recvd;
+}
+
+/**
+ * @brief Reads CO2 history data in to array
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @return Received point count
+ */
+int Aranet4::getHistoryCO2(uint16_t start, uint16_t count, uint16_t* data) {
+    return getHistoryByParam(start, count, data, AR4_PARAM_CO2);
+}
+
+/**
+ * @brief Reads Temperature history data in to array
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @return Received point count
+ */
+int Aranet4::getHistoryTemperature(uint16_t start, uint16_t count, uint16_t* data) {
+    return getHistoryByParam(start, count, data, AR4_PARAM_TEMPERATURE);
+}
+
+/**
+ * @brief Reads Pressure history data in to array
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @return Received point count
+ */
+int Aranet4::getHistoryPressure(uint16_t start, uint16_t count, uint16_t* data) {
+    return getHistoryByParam(start, count, data, AR4_PARAM_PRESSURE);
+}
+
+/**
+ * @brief Reads Humidity history data in to array
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @return Received point count
+ */
+int Aranet4::getHistoryHumidity(uint16_t start, uint16_t count, uint16_t* data) {
+    return getHistoryByParam(start, count, data, AR4_PARAM_HUMIDITY);
+}
+
+/**
+ * @brief Reads all history data in to array
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @return Received point count (smallest)
+ */
+int Aranet4::getHistory(uint16_t start, uint16_t count, AranetDataCompact* data) {
+    uint16_t* temp = (uint16_t*) malloc(count * sizeof(uint16_t));
+    int ret = count;
+
+    int result = getHistoryCO2(start, count, temp);
+    for (int i = 0; i < result; i++) data[i].co2 = temp[i];
+    if (result < ret) ret = result;
+
+    result = getHistoryTemperature(start, count, temp);
+    for (int i = 0; i < result; i++) data[i].temperature = temp[i];
+    if (result < ret) ret = result;
+
+    result = getHistoryPressure(start, count, temp);
+    for (int i = 0; i < result; i++) data[i].pressure = temp[i];
+    if (result < ret) ret = result;
+
+    result = getHistoryHumidity(start, count, temp);
+    for (int i = 0; i < result; i++) data[i].humidity = temp[i];
+    if (result < ret) ret = result;
+
+    free(temp);
+
+    return ret;
 }

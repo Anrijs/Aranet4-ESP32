@@ -30,10 +30,6 @@ typedef uint16_t ar4_err_t;
 
 #define AR4_NO_DATA_FOR_PARAM   -1
 
-//Subscribe / Aranet service
-#define AR4_SUBSCRIBE_HISTORY   0x0032
-#define AR4_NOTIFY_HISTORY      0x0031
-
 // Service UUIDs
 static NimBLEUUID UUID_Aranet4  ("f0cd1400-95da-4f4b-9ac8-aa55d312af0c");
 static NimBLEUUID UUID_Generic  ("1800");
@@ -46,6 +42,8 @@ static NimBLEUUID UUID_Aranet4_Interval            ("f0cd2002-95da-4f4b-9ac8-aa5
 static NimBLEUUID UUID_Aranet4_SecondsSinceUpdate  ("f0cd2004-95da-4f4b-9ac8-aa55d312af0c");
 static NimBLEUUID UUID_Aranet4_TotalReadings       ("f0cd2001-95da-4f4b-9ac8-aa55d312af0c");
 static NimBLEUUID UUID_Aranet4_Cmd                 ("f0cd1402-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_Notify_History      ("f0cd2003-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_Subscribe_History   ("2902");
 
 // Read / Generic servce
 static NimBLEUUID UUID_Generic_DeviceName ("2a00");
@@ -71,6 +69,14 @@ typedef struct AranetData {
     uint16_t ago = 0;
 };
 #pragma pack(pop)
+
+// Small version of AranetData for history
+typedef struct AranetDataCompact {
+    uint16_t co2 = 0;
+    uint16_t temperature = 0;
+    uint16_t pressure = 0;
+    uint8_t  humidity = 0;
+};
 
 class Aranet4Callbacks : public NimBLEClientCallbacks {
     uint32_t onPassKeyRequest() {
@@ -101,6 +107,13 @@ public:
     String      getFwVersion();
     String      getHwVersion();
 
+    ar4_err_t   writeCmd(uint8_t* data, uint16_t len);
+
+    int         getHistoryCO2(uint16_t start, uint16_t count, uint16_t* data);
+    int         getHistoryTemperature(uint16_t start, uint16_t count, uint16_t* data);
+    int         getHistoryPressure(uint16_t start, uint16_t count, uint16_t* data);
+    int         getHistoryHumidity(uint16_t start, uint16_t count, uint16_t* data);
+    int         getHistory(uint16_t start, uint16_t count, AranetDataCompact* data);
     ar4_err_t   getStatus();
 private:
     NimBLEClient* pClient = nullptr;
@@ -109,6 +122,13 @@ private:
     ar4_err_t getValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid, uint8_t* data, uint16_t* len);
     String    getStringValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid);
     uint16_t  getU16Value(NimBLEUUID serviceUuid, NimBLEUUID charUuid);
+
+    // History stuff
+    int       getHistoryByParam(uint16_t start, uint16_t count, uint16_t* data, uint8_t param);
+    ar4_err_t subscribeHistory(uint8_t* cmd);
+
+    static QueueHandle_t historyQueue;
+    static void historyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic, uint8_t* pData, size_t length, bool isNotify);
 };
 
 #endif
