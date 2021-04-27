@@ -288,8 +288,6 @@ void Aranet4::historyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
     uint8_t count = pData[3];
     uint16_t pos = 4;
 
-    Serial.printf("==== PARAM: %i,  IDX: %i,  COUNT: %i\n",param,idx,count);
-
     while (count > 0 && pos < length) {
         uint16_t val = pData[pos++];
 
@@ -344,11 +342,11 @@ ar4_err_t Aranet4::subscribeHistory(uint8_t* cmd) {
  * @param [in] param PArameter to fetch
  * @return Received point count
  */
-int Aranet4::getHistoryByParam(uint16_t start, uint16_t count, uint16_t* data, uint8_t param) {
+int Aranet4::getHistoryByParam(int start, uint16_t count, uint16_t* data, uint8_t param) {
     if (start < 1) start = 1;
 
     // id 1 is oldest
-    uint16_t end = start + count;
+    uint16_t end = start + (count - 1);
     uint8_t cmd[] = {0x82,param,0x00,0x00,0x01,0x00,0x01,0x00};
 
     memcpy(&cmd[4], (unsigned char*) &start, 2);
@@ -360,8 +358,8 @@ int Aranet4::getHistoryByParam(uint16_t start, uint16_t count, uint16_t* data, u
     // wait for queue
     uint16_t recvd = 0;
     while (recvd < count) {
-        if (!xQueueReceive(historyQueue, &data[recvd], 10000 / portTICK_PERIOD_MS)) { // 1ms
-            Serial.println("History queue timeout");
+        if (!xQueueReceive(historyQueue, &data[recvd], 3000 / portTICK_PERIOD_MS)) {
+            Serial.printf("History queue timeout. Received %i, Expected: %i\n",recvd, count);
             break;
         }
         recvd++;
@@ -377,7 +375,7 @@ int Aranet4::getHistoryByParam(uint16_t start, uint16_t count, uint16_t* data, u
  * @param [out] data Pointer to data array, whre results will be stored
  * @return Received point count
  */
-int Aranet4::getHistoryCO2(uint16_t start, uint16_t count, uint16_t* data) {
+int Aranet4::getHistoryCO2(int start, uint16_t count, uint16_t* data) {
     return getHistoryByParam(start, count, data, AR4_PARAM_CO2);
 }
 
@@ -388,7 +386,7 @@ int Aranet4::getHistoryCO2(uint16_t start, uint16_t count, uint16_t* data) {
  * @param [out] data Pointer to data array, whre results will be stored
  * @return Received point count
  */
-int Aranet4::getHistoryTemperature(uint16_t start, uint16_t count, uint16_t* data) {
+int Aranet4::getHistoryTemperature(int start, uint16_t count, uint16_t* data) {
     return getHistoryByParam(start, count, data, AR4_PARAM_TEMPERATURE);
 }
 
@@ -399,7 +397,7 @@ int Aranet4::getHistoryTemperature(uint16_t start, uint16_t count, uint16_t* dat
  * @param [out] data Pointer to data array, whre results will be stored
  * @return Received point count
  */
-int Aranet4::getHistoryPressure(uint16_t start, uint16_t count, uint16_t* data) {
+int Aranet4::getHistoryPressure(int start, uint16_t count, uint16_t* data) {
     return getHistoryByParam(start, count, data, AR4_PARAM_PRESSURE);
 }
 
@@ -410,7 +408,7 @@ int Aranet4::getHistoryPressure(uint16_t start, uint16_t count, uint16_t* data) 
  * @param [out] data Pointer to data array, whre results will be stored
  * @return Received point count
  */
-int Aranet4::getHistoryHumidity(uint16_t start, uint16_t count, uint16_t* data) {
+int Aranet4::getHistoryHumidity(int start, uint16_t count, uint16_t* data) {
     return getHistoryByParam(start, count, data, AR4_PARAM_HUMIDITY);
 }
 
@@ -421,7 +419,7 @@ int Aranet4::getHistoryHumidity(uint16_t start, uint16_t count, uint16_t* data) 
  * @param [out] data Pointer to data array, whre results will be stored
  * @return Received point count (smallest)
  */
-int Aranet4::getHistory(uint16_t start, uint16_t count, AranetDataCompact* data) {
+int Aranet4::getHistory(int start, uint16_t count, AranetDataCompact* data) {
     uint16_t* temp = (uint16_t*) malloc(count * sizeof(uint16_t));
     int ret = count;
 

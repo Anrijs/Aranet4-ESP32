@@ -109,11 +109,11 @@ public:
 
     ar4_err_t   writeCmd(uint8_t* data, uint16_t len);
 
-    int         getHistoryCO2(uint16_t start, uint16_t count, uint16_t* data);
-    int         getHistoryTemperature(uint16_t start, uint16_t count, uint16_t* data);
-    int         getHistoryPressure(uint16_t start, uint16_t count, uint16_t* data);
-    int         getHistoryHumidity(uint16_t start, uint16_t count, uint16_t* data);
-    int         getHistory(uint16_t start, uint16_t count, AranetDataCompact* data);
+    int         getHistoryCO2(int start, uint16_t count, uint16_t* data);
+    int         getHistoryTemperature(int start, uint16_t count, uint16_t* data);
+    int         getHistoryPressure(int start, uint16_t count, uint16_t* data);
+    int         getHistoryHumidity(int start, uint16_t count, uint16_t* data);
+    int         getHistory(int start, uint16_t count, AranetDataCompact* data);
     ar4_err_t   getStatus();
 private:
     NimBLEClient* pClient = nullptr;
@@ -124,7 +124,7 @@ private:
     uint16_t  getU16Value(NimBLEUUID serviceUuid, NimBLEUUID charUuid);
 
     // History stuff
-    int       getHistoryByParam(uint16_t start, uint16_t count, uint16_t* data, uint8_t param);
+    int       getHistoryByParam(int start, uint16_t count, uint16_t* data, uint8_t param);
     ar4_err_t subscribeHistory(uint8_t* cmd);
 
     static QueueHandle_t historyQueue;
