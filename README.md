@@ -19,12 +19,12 @@ class MyAranet4Callbacks: public Aranet4Callbacks {
 ```
 2. Initialize ESP32 bluetooth device and security profile in `setup()` function:
 ```cpp
-Aranet4::init(new  MyAranet4Callbacks());
+Aranet4::init();
 ```
 3. Connect to device and read data:
 ```cpp
 String addr =  "00:01:02:03:04:05";
-Aranet4 ar4;
+Aranet4 ar4(new  MyAranet4Callbacks());
 ...
 if (ar4.connect(addr) == AR4_OK) {
     AranetData data =  ar4.getCurrentReadings();

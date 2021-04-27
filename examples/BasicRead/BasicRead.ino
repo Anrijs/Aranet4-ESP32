@@ -10,7 +10,6 @@
 
 #include "Aranet4.h"
 
-Aranet4 ar4;
 // Address can be string or byte array
 // uint8_t addr[] = {0xc00 0x01, 0x02, 0x03, 0x04, 0x05 };
 String addr = "00:01:02:03:04:05"; // Put your Aranet4 MAC address here
@@ -26,12 +25,14 @@ class MyAranet4Callbacks: public Aranet4Callbacks {
     }
 };
 
+Aranet4 ar4(new MyAranet4Callbacks());
+
 void setup() {
     Serial.begin(115200);
     Serial.println("Init");
 
     // Set up bluettoth security and callbacks
-    Aranet4::init(new MyAranet4Callbacks());
+    Aranet4::init();
 }
 
 void loop() {
