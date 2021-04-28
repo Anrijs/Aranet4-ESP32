@@ -12,8 +12,28 @@ Aranet4	KEYWORD1
 # Methods and Functions (KEYWORD2)
 #######################################
 
-readData	KEYWORD2
-isPaired	KEYWORD2
+init	KEYWORD2
+connect	KEYWORD2
+disconnect	KEYWORD2
+secureConnection	KEYWORD2
+
+getCurrentReadings	KEYWORD2
+getSecondsSinceUpdate	KEYWORD2
+getTotalReadings	KEYWORD2
+getInterval	KEYWORD2
+getName	KEYWORD2
+getSwVersion	KEYWORD2
+getFwVersion	KEYWORD2
+getHwVersion	KEYWORD2
+
+writeCmd	KEYWORD2
+
+getHistoryCO2	KEYWORD2
+getHistoryTemperature	KEYWORD2
+getHistoryPressure	KEYWORD2
+getHistoryHumidity	KEYWORD2
+getHistory	KEYWORD2
+getStatus	KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)
@@ -37,5 +57,3 @@ AR4_ERR_NO_GATT_SERVICE	LITERAL1
 AR4_ERR_NO_GATT_CHAR	LITERAL1
 AR4_ERR_NO_CLIENT	LITERAL1
 AR4_ERR_NOT_CONNECTED	LITERAL1
-AR4_ERR_UNAUTHORIZED	LITERAL1
-AR4_ERR_TIMEOUT	LITERAL1
