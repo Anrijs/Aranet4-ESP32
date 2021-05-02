@@ -119,6 +119,22 @@ void Aranet4::disconnect() {
 }
 
 /**
+ * @brief Set the timeout to wait for connection attempt to complete
+ */
+void Aranet4::setConnectTimeout(uint8_t time) {
+    if (pClient != nullptr) {
+      pClient->setConnectTimeout(time);
+    }
+}
+
+/**
+ * @brief Are we connected to a server?
+ */
+bool Aranet4::isConnected() {
+    return pClient != nullptr && pClient->isConnected();
+}
+
+/**
  * @brief Current readings from Aranet4
  */
 AranetData Aranet4::getCurrentReadings() {

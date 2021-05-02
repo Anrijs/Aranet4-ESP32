@@ -97,6 +97,8 @@ public:
     ar4_err_t connect(String addr, uint8_t type = BLE_ADDR_RANDOM, bool secure = true);
     ar4_err_t secureConnection();
     void      disconnect();
+    void      setConnectTimeout(uint8_t time);
+    bool      isConnected();
 
     AranetData  getCurrentReadings();
     uint16_t    getSecondsSinceUpdate();
