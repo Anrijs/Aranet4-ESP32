@@ -16,6 +16,8 @@ init	KEYWORD2
 connect	KEYWORD2
 disconnect	KEYWORD2
 secureConnection	KEYWORD2
+setConnectTimeout	KEYWORD2
+isConnected	KEYWORD2
 
 getCurrentReadings	KEYWORD2
 getSecondsSinceUpdate	KEYWORD2
