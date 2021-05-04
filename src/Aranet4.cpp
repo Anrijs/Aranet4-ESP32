@@ -380,6 +380,10 @@ int Aranet4::getHistoryByParam(int start, uint16_t count, uint16_t* data, uint8_
         }
         recvd++;
     }
+    uint16_t tmp = 0;
+    while (xQueueReceive(historyQueue, &tmp, 500 / portTICK_PERIOD_MS)) {
+        // wait till done
+    }
     xQueueReset(historyQueue);
     return recvd;
 }
