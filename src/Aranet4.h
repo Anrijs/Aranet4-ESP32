@@ -90,7 +90,7 @@ class Aranet4 {
 public:
     Aranet4(Aranet4Callbacks* callbacks);
     ~Aranet4();
-    static void init();
+    static void init(uint16_t mtu = 247);
     ar4_err_t connect(NimBLEAdvertisedDevice* adv, bool secure = true);
     ar4_err_t connect(NimBLEAddress addr, bool secure = true);
     ar4_err_t connect(uint8_t* addr, uint8_t type = BLE_ADDR_RANDOM, bool secure = true);

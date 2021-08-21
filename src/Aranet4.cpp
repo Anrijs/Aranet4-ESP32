@@ -25,12 +25,13 @@ Aranet4::~Aranet4() {
  * @brief Initialize ESP32 bluetooth device and security profile
  * @param [in] cllbacks Pointer to Aranet4Callbacks class callback
  */
-void Aranet4::init() {
+void Aranet4::init(uint16_t mtu) {
     // Set up bluetooth device and security
     NimBLEDevice::init("");
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
     NimBLEDevice::setSecurityAuth(true, true, true);
     NimBLEDevice::setSecurityIOCap(BLE_HS_IO_KEYBOARD_ONLY);
+    NimBLEDevice::setMTU(mtu);
 }
 
 /**
@@ -374,14 +375,14 @@ int Aranet4::getHistoryByParam(int start, uint16_t count, uint16_t* data, uint8_
     // wait for queue
     uint16_t recvd = 0;
     while (recvd < count) {
-        if (!xQueueReceive(historyQueue, &data[recvd], 3000 / portTICK_PERIOD_MS)) {
+        if (!xQueueReceive(historyQueue, &data[recvd], 500 / portTICK_PERIOD_MS)) {
             Serial.printf("History queue timeout. Received %i, Expected: %i\n",recvd, count);
             break;
         }
         recvd++;
     }
     uint16_t tmp = 0;
-    while (xQueueReceive(historyQueue, &tmp, 500 / portTICK_PERIOD_MS)) {
+    while (xQueueReceive(historyQueue, &tmp, 100 / portTICK_PERIOD_MS)) {
         // wait till done
     }
     xQueueReset(historyQueue);
