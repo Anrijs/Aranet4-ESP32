@@ -141,7 +141,7 @@ bool Aranet4::isConnected() {
 AranetData Aranet4::getCurrentReadings() {
     AranetData data;
     uint16_t len = sizeof(AranetData);
-    status = getValue(UUID_Aranet4, UUID_Aranet4_CurrentReadingsDet, (uint8_t*) &data, &len);
+    status = getValue(getAranetService(), UUID_Aranet4_CurrentReadingsDet, (uint8_t*) &data, &len);
 
     return data;
 }
@@ -150,21 +150,21 @@ AranetData Aranet4::getCurrentReadings() {
  * @brief Seconds since last Aranet4 measurement
  */
 uint16_t Aranet4::getSecondsSinceUpdate() {
-    return getU16Value(UUID_Aranet4, UUID_Aranet4_SecondsSinceUpdate);
+    return getU16Value(getAranetService(), UUID_Aranet4_SecondsSinceUpdate);
 }
 
 /**
  * @brief Total readings stored in Aranet4 memory
  */
 uint16_t Aranet4::getTotalReadings() {
-    return getU16Value(UUID_Aranet4, UUID_Aranet4_TotalReadings);
+    return getU16Value(getAranetService(), UUID_Aranet4_TotalReadings);
 }
 
 /**
  * @brief Aranet4 measurement intervals
  */
 uint16_t Aranet4::getInterval() {
-    return getU16Value(UUID_Aranet4, UUID_Aranet4_Interval);
+    return getU16Value(getAranetService(), UUID_Aranet4_Interval);
 }
 
 /**
@@ -212,15 +212,24 @@ ar4_err_t Aranet4::getStatus() {
  */
 ar4_err_t Aranet4::getValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid, uint8_t* data, uint16_t* len) {
     if (pClient == nullptr) return AR4_ERR_NO_CLIENT;
-
     if (!pClient->isConnected())  return AR4_ERR_NOT_CONNECTED;
+    return getValue(pClient->getService(serviceUuid), charUuid, data, len);
+}
 
-    NimBLERemoteService* pRemoteService = pClient->getService(serviceUuid);
-    if (pRemoteService == nullptr) {
-        return AR4_ERR_NO_GATT_SERVICE;
-    }
+/**
+ * @brief Reads raw data from Aranet4
+ * @param [in] service GATT Service to read
+ * @param [in] charUuid GATT Char UUID to read
+ * @param [out] data Pointer to where received data will be stored
+ * @param [in|out] Size of data on input, received data size on output (truncated if larger than input)
+ * @return Read status code (AR4_READ_*)
+ */
+ar4_err_t Aranet4::getValue(NimBLERemoteService* service, NimBLEUUID charUuid, uint8_t* data, uint16_t* len) {
+    if (pClient == nullptr) return AR4_ERR_NO_CLIENT;
+    if (!pClient->isConnected())  return AR4_ERR_NOT_CONNECTED;
+    if (service == nullptr) return AR4_ERR_NO_GATT_SERVICE;
 
-    NimBLERemoteCharacteristic* pRemoteCharacteristic = pRemoteService->getCharacteristic(charUuid);
+    NimBLERemoteCharacteristic* pRemoteCharacteristic = service->getCharacteristic(charUuid);
     if (pRemoteCharacteristic == nullptr) {
         return AR4_ERR_NO_GATT_CHAR;
     }
@@ -243,9 +252,19 @@ ar4_err_t Aranet4::getValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid, uint8_t
  * @return String value
  */
 String Aranet4::getStringValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid) {
+    return getStringValue(pClient->getService(serviceUuid), charUuid);
+}
+
+/**
+ * @brief Reads string value from Aranet4
+ * @param [in] service GATT Service to read
+ * @param [in] charUuid GATT Char UUID to read
+ * @return String value
+ */
+String Aranet4::getStringValue(NimBLERemoteService* service, NimBLEUUID charUuid) {
     uint8_t buf[33];
     uint16_t len = 32;
-    status = getValue(serviceUuid, charUuid, buf, &len);
+    status = getValue(service, charUuid, buf, &len);
     buf[len] = 0; // trerminate string
     return String((char *) buf);
 }
@@ -257,9 +276,19 @@ String Aranet4::getStringValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid) {
  * @return u16 value
  */
 uint16_t Aranet4::getU16Value(NimBLEUUID serviceUuid, NimBLEUUID charUuid) {
+    return getU16Value(pClient->getService(serviceUuid), charUuid);
+}
+
+/**
+ * @brief Reads u16 value from Aranet4
+ * @param [in] service GATT Service to read
+ * @param [in] charUuid GATT Char UUID to read
+ * @return u16 value
+ */
+uint16_t Aranet4::getU16Value(NimBLERemoteService* service, NimBLEUUID charUuid) {
     uint16_t val = 0;
     uint16_t len = 2;
-    status = getValue(serviceUuid, charUuid, (uint8_t *) &val, &len);
+    status = getValue(service, charUuid, (uint8_t *) &val, &len);
 
     if (len == 2) {
         return val;
@@ -272,14 +301,14 @@ uint16_t Aranet4::getU16Value(NimBLEUUID serviceUuid, NimBLEUUID charUuid) {
 /**
  * @brief Writes command to Aranet
  * @param [in] data Command data
- * @param [in] len COm,mand data length
+ * @param [in] len Command data length
  * @return write status
  */
 ar4_err_t Aranet4::writeCmd(uint8_t* data, uint16_t len) {
     if (pClient == nullptr) return AR4_ERR_NO_CLIENT;
     if (!pClient->isConnected())  return AR4_ERR_NOT_CONNECTED;
 
-    NimBLERemoteService* pRemoteService = pClient->getService(UUID_Aranet4);
+    NimBLERemoteService* pRemoteService = getAranetService();
     if (pRemoteService == nullptr) {
         return AR4_ERR_NO_GATT_SERVICE;
     }
@@ -317,6 +346,14 @@ void Aranet4::historyCallback(BLERemoteCharacteristic* pBLERemoteCharacteristic,
     }
 }
 
+NimBLERemoteService* Aranet4::getAranetService() {
+    NimBLERemoteService* pRemoteService = pClient->getService(UUID_Aranet4);
+    if (pRemoteService == nullptr) {
+        pRemoteService = pClient->getService(UUID_Aranet4_Old);
+    }
+    return pRemoteService;
+}
+
 /**
  * @brief Subscribe and request history
  * @param [in] cmd Command data. Must be 8 bytes.
@@ -326,7 +363,7 @@ ar4_err_t Aranet4::subscribeHistory(uint8_t* cmd) {
     if (pClient == nullptr) return AR4_ERR_NO_CLIENT;
     if (!pClient->isConnected())  return AR4_ERR_NOT_CONNECTED;
 
-    NimBLERemoteService* pRemoteService = pClient->getService(UUID_Aranet4);
+    NimBLERemoteService* pRemoteService = getAranetService();
     if (pRemoteService == nullptr) {
          Serial.println("NO SERVC");
         return AR4_ERR_NO_GATT_SERVICE;

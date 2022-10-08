@@ -31,9 +31,10 @@ typedef uint16_t ar4_err_t;
 #define AR4_NO_DATA_FOR_PARAM   -1
 
 // Service UUIDs
-static NimBLEUUID UUID_Aranet4  ("f0cd1400-95da-4f4b-9ac8-aa55d312af0c");
-static NimBLEUUID UUID_Generic  ("1800");
-static NimBLEUUID UUID_Common   ("180a");
+static NimBLEUUID UUID_Aranet4_Old  ("f0cd1400-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4      ("0000fce0-0000-1000-8000-00805f9b34fb");
+static NimBLEUUID UUID_Generic      ("1800");
+static NimBLEUUID UUID_Common       ("180a");
 
 // Read / Aranet service
 static NimBLEUUID UUID_Aranet4_CurrentReadings     ("f0cd1503-95da-4f4b-9ac8-aa55d312af0c");
@@ -121,9 +122,14 @@ private:
     NimBLEClient* pClient = nullptr;
     ar4_err_t status = AR4_OK;
 
-    ar4_err_t getValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid, uint8_t* data, uint16_t* len);
+    NimBLERemoteService* getAranetService();
+
+    ar4_err_t getValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid, uint8_t* data, uint16_t* len);;
+    ar4_err_t getValue(NimBLERemoteService* service, NimBLEUUID charUuid, uint8_t* data, uint16_t* len);;
     String    getStringValue(NimBLEUUID serviceUuid, NimBLEUUID charUuid);
+    String    getStringValue(NimBLERemoteService* service, NimBLEUUID charUuid);
     uint16_t  getU16Value(NimBLEUUID serviceUuid, NimBLEUUID charUuid);
+    uint16_t  getU16Value(NimBLERemoteService* service, NimBLEUUID charUuid);
 
     // History stuff
     int       getHistoryByParam(int start, uint16_t count, uint16_t* data, uint8_t param);
