@@ -26,7 +26,9 @@ Aranet4::init();
 String addr =  "00:01:02:03:04:05";
 Aranet4 ar4(new  MyAranet4Callbacks());
 ...
-if (ar4.connect(addr) == AR4_OK) {
+bool secure = true;
+
+if (ar4.connect(addr, secure) == AR4_OK) {
     AranetData data =  ar4.getCurrentReadings();
 	Serial.printf("CO2: %i ppm\n", data.co2);
 	Serial.printf("Temperature: %.2f C\n", data.temperature  /  20.0);
@@ -40,5 +42,7 @@ if (ar4.connect(addr) == AR4_OK) {
 }
 ar4.disconnect();
 ```
+
+You can set `bool secure=false;`, if Aranet4 is running v1.2.0 or later, with Smart Home Integrations enabled. This will skip pairing process. However, you will be only available to use `getCurrentReadings()` function. Geting history still requires device pairing/secure mode.
 
 Measurement data is stored in original binary format. This means temperature must be divided by 20 and pressure must be divided by 10 to get correct values.

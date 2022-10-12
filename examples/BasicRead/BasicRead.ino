@@ -39,7 +39,9 @@ void loop() {
     long sleep = 1000 * 60; // 1 minute
 
     Serial.println("Connecting...");
-    if (ar4.connect(addr) == AR4_OK) {
+
+    bool secure = true;
+    if (ar4.connect(addr, secure1) == AR4_OK) {
         AranetData data = ar4.getCurrentReadings();
         
         if (ar4.getStatus() == AR4_OK) {
