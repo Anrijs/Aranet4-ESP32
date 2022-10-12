@@ -82,9 +82,10 @@ ar4_err_t Aranet4::connect(NimBLEAddress addr, bool secure) {
  * @brief Connect to Aranet4 device
  * @param [in] addr Address of bluetooth device
  * @param [in] secure Start in secure mode (bonded)
+ * @param [in] type Address type
  * @return status code
  */
-ar4_err_t Aranet4::connect(uint8_t* addr, uint8_t type, bool secure) {
+ar4_err_t Aranet4::connect(uint8_t* addr, bool secure, uint8_t type) {
     return connect(NimBLEAddress(addr, type), secure);
 }
 
@@ -92,9 +93,10 @@ ar4_err_t Aranet4::connect(uint8_t* addr, uint8_t type, bool secure) {
  * @brief Connect to Aranet4 device
  * @param [in] addr Address of bluetooth device
  * @param [in] secure Start in secure mode (bonded)
+ * @param [in] type Address type
  * @return status code
  */
-ar4_err_t Aranet4::connect(String addr, uint8_t type, bool secure) {
+ar4_err_t Aranet4::connect(String addr, bool secure, uint8_t type) {
     std::string addrstr(addr.c_str());
     return connect(NimBLEAddress(addrstr, type), secure);
 }

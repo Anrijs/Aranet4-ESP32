@@ -32,7 +32,7 @@ typedef uint16_t ar4_err_t;
 
 // Service UUIDs
 static NimBLEUUID UUID_Aranet4_Old  ("f0cd1400-95da-4f4b-9ac8-aa55d312af0c");
-static NimBLEUUID UUID_Aranet4      ("0000fce0-0000-1000-8000-00805f9b34fb");
+static NimBLEUUID UUID_Aranet4      ("fce0");
 static NimBLEUUID UUID_Generic      ("1800");
 static NimBLEUUID UUID_Common       ("180a");
 
@@ -94,8 +94,8 @@ public:
     static void init(uint16_t mtu = 247);
     ar4_err_t connect(NimBLEAdvertisedDevice* adv, bool secure = true);
     ar4_err_t connect(NimBLEAddress addr, bool secure = true);
-    ar4_err_t connect(uint8_t* addr, uint8_t type = BLE_ADDR_RANDOM, bool secure = true);
-    ar4_err_t connect(String addr, uint8_t type = BLE_ADDR_RANDOM, bool secure = true);
+    ar4_err_t connect(uint8_t* addr, bool secure = true, uint8_t type = BLE_ADDR_RANDOM);
+    ar4_err_t connect(String addr, bool secure = true, uint8_t type = BLE_ADDR_RANDOM);
     ar4_err_t secureConnection();
     void      disconnect();
     void      setConnectTimeout(uint8_t time);
