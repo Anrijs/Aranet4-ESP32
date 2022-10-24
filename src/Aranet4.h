@@ -11,6 +11,8 @@
 #include "Arduino.h"
 #include <NimBLEDevice.h>
 
+#define ARANET4_MANUFACTURER_ID 0x0702
+
 typedef uint16_t ar4_err_t;
 
 // ar4_err_t Status/Error codes
@@ -68,6 +70,43 @@ typedef struct AranetData {
     uint8_t  unkn = 0;
     uint16_t interval = 0;
     uint16_t ago = 0;
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct AranetManufacturerData {
+    uint16_t manufacturer_id;
+    uint8_t disconnected : 1,
+            __unknown1   : 1,
+            calib_state  : 2,
+            dfu_mode     : 1,
+            integrations : 1,
+            __unknown2   : 2;
+    struct {
+        uint8_t  patch;
+        uint8_t  minor;
+        uint16_t major;
+    } version;
+    uint8_t hw_rev;
+    uint16_t __unknown3;
+    AranetData data;
+
+    bool fromAdvertisement(NimBLEAdvertisedDevice* adv) {
+        std::string strManufacturerData = adv->getManufacturerData();
+        int cLength = strManufacturerData.length();
+
+        uint8_t cManufacturerData[100];
+        strManufacturerData.copy((char *) cManufacturerData, cLength, 0);
+
+        // check manufacturer id
+        if(*(uint16_t*) cManufacturerData != ARANET4_MANUFACTURER_ID) return false;
+
+        // copy data
+        if (cLength > sizeof(AranetManufacturerData)) cLength = sizeof(AranetManufacturerData);
+        memcpy(this, (void*) cManufacturerData, cLength); // -2 to drop id
+
+        return true;
+    }
 };
 #pragma pack(pop)
 
