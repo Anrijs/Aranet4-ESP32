@@ -142,8 +142,19 @@ bool Aranet4::isConnected() {
  */
 AranetData Aranet4::getCurrentReadings() {
     AranetData data;
-    uint16_t len = sizeof(AranetData);
-    status = getValue(getAranetService(), UUID_Aranet4_CurrentReadingsDet, (uint8_t*) &data, &len);
+    uint8_t raw[100];
+    uint16_t len = 100;
+
+    if (isAranet2()) {
+        status = getValue(getAranetService(), UUID_Aranet2_CurrentReadings, raw, &len);
+    } else if (getAranetService()->getCharacteristic(UUID_Aranet4_CurrentReadingsDet)) {
+        status = getValue(getAranetService(), UUID_Aranet4_CurrentReadingsDet, raw, &len);
+    } else {
+        status = AR4_FAIL;
+    }
+
+    if (status == AR4_OK)
+        status = data.parseFromGATT(raw, AR4_PACKING_ARANET2);
 
     return data;
 }
@@ -202,6 +213,20 @@ String Aranet4::getHwVersion() {
  */
 ar4_err_t Aranet4::getStatus() {
     return status;
+}
+
+/**
+ * @brief Check is is Aranet2
+ */
+bool Aranet4::isAranet2() {
+    return (getAranetService()->getCharacteristic(UUID_Aranet2_CurrentReadings)) != nullptr;
+}
+
+/**
+ * @brief Check is is Aranet4
+ */
+bool Aranet4::isAranet4() {
+    return (getAranetService()->getCharacteristic(UUID_Aranet4_CurrentReadings)) != nullptr;
 }
 
 /**
@@ -473,31 +498,55 @@ int Aranet4::getHistoryHumidity(int start, uint16_t count, uint16_t* data) {
 }
 
 /**
+ * @brief Reads precise Humidity (.1 step) history data in to array
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @return Received point count
+ */
+int Aranet4::getHistoryHumidity2(int start, uint16_t count, uint16_t* data) {
+    return getHistoryByParam(start, count, data, AR4_PARAM_HUMIDITY2);
+}
+
+/**
  * @brief Reads all history data in to array
  * @param [in] start Start index
  * @param [in] count Data points to read
  * @param [out] data Pointer to data array, whre results will be stored
  * @return Received point count (smallest)
  */
-int Aranet4::getHistory(int start, uint16_t count, AranetDataCompact* data) {
+int Aranet4::getHistory(int start, uint16_t count, AranetDataCompact* data, uint8_t flags) {
     uint16_t* temp = (uint16_t*) malloc(count * sizeof(uint16_t));
     int ret = count;
+    int result = 0;
 
-    int result = getHistoryCO2(start, count, temp);
-    for (int i = 0; i < result; i++) data[i].co2 = temp[i];
-    if (result < ret) ret = result;
+    if (flags & AR4_PARAM_CO2_FLAG) {
+        result = getHistoryCO2(start, count, temp);
+        for (int i = 0; i < result; i++) data[i].co2 = temp[i];
+        if (result < ret) ret = result;
+    }
 
-    result = getHistoryTemperature(start, count, temp);
-    for (int i = 0; i < result; i++) data[i].temperature = temp[i];
-    if (result < ret) ret = result;
+    if (flags & AR4_PARAM_TEMPERATURE_FLAG) {
+        result = getHistoryTemperature(start, count, temp);
+        for (int i = 0; i < result; i++) data[i].temperature = temp[i];
+        if (result < ret) ret = result;
+    }
 
-    result = getHistoryPressure(start, count, temp);
-    for (int i = 0; i < result; i++) data[i].pressure = temp[i];
-    if (result < ret) ret = result;
+    if (flags & AR4_PARAM_PRESSURE_FLAG) {
+        result = getHistoryPressure(start, count, temp);
+        for (int i = 0; i < result; i++) data[i].pressure = temp[i];
+        if (result < ret) ret = result;
+    }
 
-    result = getHistoryHumidity(start, count, temp);
-    for (int i = 0; i < result; i++) data[i].humidity = temp[i];
-    if (result < ret) ret = result;
+    if (flags & AR4_PARAM_HUMIDITY2_FLAG) {
+        result = getHistoryHumidity2(start, count, temp);
+        for (int i = 0; i < result; i++) data[i].humidity = temp[i];
+        if (result < ret) ret = result;
+    } else if (flags & AR4_PARAM_HUMIDITY_FLAG) {
+        result = getHistoryHumidity(start, count, temp);
+        for (int i = 0; i < result; i++) data[i].humidity = temp[i];
+        if (result < ret) ret = result;
+    }
 
     free(temp);
 
