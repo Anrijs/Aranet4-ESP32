@@ -142,19 +142,22 @@ bool Aranet4::isConnected() {
  */
 AranetData Aranet4::getCurrentReadings() {
     AranetData data;
+    uint8_t packing = -1;
     uint8_t raw[100];
     uint16_t len = 100;
 
     if (isAranet2()) {
         status = getValue(getAranetService(), UUID_Aranet2_CurrentReadings, raw, &len);
+        packing = AR4_PACKING_ARANET2;
     } else if (getAranetService()->getCharacteristic(UUID_Aranet4_CurrentReadingsDet)) {
         status = getValue(getAranetService(), UUID_Aranet4_CurrentReadingsDet, raw, &len);
+        packing = AR4_PACKING_ARANET4;
     } else {
         status = AR4_FAIL;
     }
 
     if (status == AR4_OK)
-        status = data.parseFromGATT(raw, AR4_PACKING_ARANET2);
+        status = data.parseFromGATT(raw, packing);
 
     return data;
 }
