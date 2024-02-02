@@ -201,7 +201,8 @@ typedef struct AranetManufacturerData {
 
         // copy data
         if (cLength > sizeof(AranetManufacturerData)) cLength = sizeof(AranetManufacturerData);
-        memcpy(this, (void*) cManufacturerData, cLength); // -2 to drop id
+        memcpy(this, (void*) cManufacturerData, cLength - sizeof(AranetData));
+        data.parseFromAdvertisement(cManufacturerData);
 
         return true;
     }
