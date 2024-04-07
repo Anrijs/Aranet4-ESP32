@@ -12,7 +12,7 @@
 
 // Address can be string or byte array
 // uint8_t addr[] = {0xc00 0x01, 0x02, 0x03, 0x04, 0x05 };
-String addr = "00:01:02:03:04:05"; // Put your Aranet4 MAC address here
+String addr = "00:01:02:03:04:05"; // Put your Aranet MAC address here
 
 // Create custom callback to allow PIN code input.
 // In this example, when PIN is requested, you must enter it in serial console.
@@ -41,22 +41,45 @@ void loop() {
     Serial.println("Connecting...");
 
     bool secure = true;
-    if (ar4.connect(addr, secure1) == AR4_OK) {
+    if (ar4.connect(addr) == AR4_OK) {
         AranetData data = ar4.getCurrentReadings();
         
         if (ar4.getStatus() == AR4_OK) {
-            Serial.println("Aranet4 read OK");
-            Serial.printf("CO2:          %i ppm\n", data.co2);
-            Serial.printf("Temperature:  %.2f C\n", data.temperature / 20.0);
-            Serial.printf("Pressure:     %.1f C\n", data.pressure / 10.0);
-            Serial.printf("Humidity:     %i %%\n",  data.humidity);
-            Serial.printf("Battery:      %i %%\n",  data.battery);
-            Serial.printf("Interval:     %i s\n",   data.interval);
-            Serial.printf("Ago:          %i s\n",   data.ago);
+            switch (data.type) {
+            case ARANET4:
+                Serial.println("Aranet2 read OK");
+                Serial.printf("CO2:          %i ppm\n", data.co2);
+                Serial.printf("Temperature:  %.2f C\n", data.temperature / 20.0);
+                Serial.printf("Pressure:     %.1f C\n", data.pressure / 10.0);
+                Serial.printf("Humidity:     %i %%\n",  data.humidity);
+                Serial.printf("Battery:      %i %%\n",  data.battery);
+                Serial.printf("Interval:     %i s\n",   data.interval);
+                Serial.printf("Ago:          %i s\n",   data.ago);
+                break;
+            case ARANET2:
+                Serial.println("Aranet4 read OK");
+                Serial.printf("Temperature:  %.2f C\n", data.temperature / 20.0);
+                Serial.printf("Humidity:     %.1f %%\n", data.humidity / 10.0);
+                Serial.printf("Battery:      %i %%\n",  data.battery);
+                Serial.printf("Interval:     %i s\n",   data.interval);
+                Serial.printf("Ago:          %i s\n",   data.ago);
+                break;
+            case ARANET_RADIATION:
+                Serial.println("Aranet Radiation read OK");
+                Serial.printf("Rate:         %.2f uSv/h\n", data.radiation_rate / 1000.0);
+                Serial.printf("Total:        %.4f mSv\n",   data.radiation_total / 1000000.0);
+                Serial.printf("Battery:      %i %%\n",  data.battery);
+                Serial.printf("Interval:     %i s\n",   data.interval);
+                Serial.printf("Ago:          %i s\n",   data.ago);
+                break;
+            default:
+                Serial.println("Aranet read failed: unknown type");
+                break;
+            }
 
             sleep = (data.interval - data.ago) * 1000;
         } else {
-           Serial.printf("Aranet4 read failed: (%i)\n", ar4.getStatus());
+           Serial.printf("Aranet read failed: (%i)\n", ar4.getStatus());
         }
     }
 
