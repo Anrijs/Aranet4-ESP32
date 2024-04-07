@@ -25,26 +25,34 @@ typedef uint16_t ar4_err_t;
 #define AR4_ERR_NOT_CONNECTED      0x04
 
 // Aranet4 specific codes
-#define AR4_PARAM_TEMPERATURE   1
-#define AR4_PARAM_HUMIDITY      2
-#define AR4_PARAM_PRESSURE      3
-#define AR4_PARAM_CO2           4
-#define AR4_PARAM_HUMIDITY2     5
+#define AR4_PARAM_TEMPERATURE              1
+#define AR4_PARAM_HUMIDITY                 2
+#define AR4_PARAM_PRESSURE                 3
+#define AR4_PARAM_CO2                      4
+#define AR4_PARAM_HUMIDITY2                5
+#define AR4_PARAM_RADIATION_PULSES         6
+#define AR4_PARAM_RADIATION_DOSE           7
+#define AR4_PARAM_RADIATION_DOSE_RATE      8
+#define AR4_PARAM_RADIATION_DOSE_INTEGRAL  9
+#define AR4_PARAM_MAX                      10
 
 #define AR4_NO_DATA_FOR_PARAM   -1
 
-#define AR4_PACKING_ARANET2     0
-#define AR4_PACKING_ARANET4     1
-
-// Aranet4 param flags
+// Aranet param flags
 #define AR4_PARAM_TEMPERATURE_FLAG   1 << (AR4_PARAM_TEMPERATURE - 1)
 #define AR4_PARAM_HUMIDITY_FLAG      1 << (AR4_PARAM_HUMIDITY - 1)
 #define AR4_PARAM_PRESSURE_FLAG      1 << (AR4_PARAM_PRESSURE - 1)
 #define AR4_PARAM_CO2_FLAG           1 << (AR4_PARAM_CO2 - 1)
 #define AR4_PARAM_HUMIDITY2_FLAG     1 << (AR4_PARAM_HUMIDITY2 - 1)
+#define AR4_PARAM_RADIATION_PULSES_FLAG          1 << (AR4_PARAM_RADIATION_PULSES - 1)
+#define AR4_PARAM_RADIATION_DOSE_FLAG            1 << (AR4_PARAM_RADIATION_DOSE - 1)
+#define AR4_PARAM_RADIATION_DOSE_RATE_FLAG       1 << (AR4_PARAM_RADIATION_DOSE_RATE - 1)
+#define AR4_PARAM_RADIATiON_DOSE_INTEGRAL_FLAG   1 << (AR4_PARAM_RADIATION_DOSE_INTEGRAL - 1)
+
 
 #define AR2_PARAM_FLAGS  AR4_PARAM_TEMPERATURE_FLAG | AR4_PARAM_HUMIDITY2_FLAG
 #define AR4_PARAM_FLAGS  AR4_PARAM_TEMPERATURE_FLAG | AR4_PARAM_HUMIDITY_FLAG | AR4_PARAM_PRESSURE_FLAG | AR4_PARAM_CO2_FLAG
+#define ARR_PARAM_FLAGS  AR4_PARAM_RADIATION_DOSE_RATE_FLAG | AR4_PARAM_RADIATiON_DOSE_INTEGRAL_FLAG
 
 // Service UUIDs
 static NimBLEUUID UUID_Aranet4_Old  ("f0cd1400-95da-4f4b-9ac8-aa55d312af0c");
@@ -61,6 +69,7 @@ static NimBLEUUID UUID_Aranet4_SecondsSinceUpdate  ("f0cd2004-95da-4f4b-9ac8-aa5
 static NimBLEUUID UUID_Aranet4_TotalReadings       ("f0cd2001-95da-4f4b-9ac8-aa55d312af0c");
 static NimBLEUUID UUID_Aranet4_Cmd                 ("f0cd1402-95da-4f4b-9ac8-aa55d312af0c");
 static NimBLEUUID UUID_Aranet4_Notify_History      ("f0cd2003-95da-4f4b-9ac8-aa55d312af0c");
+static NimBLEUUID UUID_Aranet4_History             ("f0cd2005-95da-4f4b-9ac8-aa55d312af0c");
 static NimBLEUUID UUID_Aranet4_Subscribe_History   ("2902");
 
 // Read / Generic servce
@@ -75,9 +84,16 @@ static NimBLEUUID UUID_Common_FwRev        ("2a26");
 static NimBLEUUID UUID_Common_SwRev        ("2a28");
 static NimBLEUUID UUID_Common_Battery      ("2a19");
 
+enum AranetType {
+    ARANET4 = 0,
+    ARANET2 = 1,
+    ARANET_RADIATION = 2,
+    UNKNOWN = 255
+};
+
 #pragma pack(push, 1)
 typedef struct AranetData {
-    uint8_t  packing = 0;
+    AranetType type = UNKNOWN;
     uint16_t co2 = 0;
     uint16_t temperature = 0;
     uint16_t pressure = 0;
@@ -87,52 +103,68 @@ typedef struct AranetData {
     uint16_t interval = 0;
     uint16_t ago = 0;
 
+    uint32_t radiation_pulses = 0;
+    uint32_t radiation_rate = 0;
+    uint64_t radiation_total = 0;
+    uint64_t radiation_duration = 0;
+
     bool parseFromAdvertisement(uint8_t* data) {
-        packing = data[9];
-        if (packing == AR4_PACKING_ARANET2) {
-            // aranet2
-            memcpy(&temperature, (uint8_t*) data + 12, 2);
-            memcpy(&humidity,    (uint8_t*) data + 16, 2);
-            memcpy(&interval,    (uint8_t*) data + 21, 2);
-            memcpy(&ago,         (uint8_t*) data + 23, 2);
+        if (data[2] == 33) data[2] = 0;
 
-            battery = data[19];
-            status = data[20];
+        switch (data[2]) {
+        case 0:
+            type = ARANET4; break;
+        case 1:
+            type = ARANET2; break;
+        case 2:
+            type = ARANET_RADIATION; break;
+        default:
+            type = UNKNOWN; break;
+        }
 
-            return true;
-        } else if (packing == AR4_PACKING_ARANET4) {
-            // aranet4
+        switch (type) {
+        case ARANET4:
             memcpy(&co2,         (uint8_t*) data + 10, 2);
             memcpy(&temperature, (uint8_t*) data + 12, 2);
             memcpy(&pressure,    (uint8_t*) data + 14, 2);
             memcpy(&interval,    (uint8_t*) data + 19, 2);
             memcpy(&ago,         (uint8_t*) data + 21, 2);
-
             humidity = data[16];
             battery = data[17];
             status = data[18];
-
+            return true;
+        case ARANET2:
+            memcpy(&temperature, (uint8_t*) data + 12, 2);
+            memcpy(&humidity,    (uint8_t*) data + 16, 2);
+            memcpy(&interval,    (uint8_t*) data + 21, 2);
+            memcpy(&ago,         (uint8_t*) data + 23, 2);
+            battery = data[19];
+            status = data[20];
+            return true;
+        case ARANET_RADIATION:
+            // Preclear. Advertisement uses smaller datatypes than GATT
+            radiation_rate = 0;
+            radiation_total = 0;
+            radiation_duration = 0;
+            memcpy(&radiation_total,    (uint8_t*) data + 8, 4);
+            memcpy(&radiation_duration, (uint8_t*) data + 12, 4);
+            memcpy(&radiation_rate,     (uint8_t*) data + 16, 2);
+            battery = data[19];
+            //status = data[??];
+            memcpy(&interval,    (uint8_t*) data + 21, 2);
+            memcpy(&ago,         (uint8_t*) data + 23, 2);
             return true;
         }
 
+        // bad type
         return false;
     }
 
-    ar4_err_t parseFromGATT(uint8_t* data, uint8_t packing) {
-        this->packing = packing;
-        if (packing == AR4_PACKING_ARANET2) {
-            // aranet2
-            memcpy(&temperature, (uint8_t*) data + 7, 2);
-            memcpy(&humidity,    (uint8_t*) data + 9, 2);
-            memcpy(&interval,    (uint8_t*) data + 2, 2);
-            memcpy(&ago,         (uint8_t*) data + 4, 2);
+    ar4_err_t parseFromGATT(uint8_t* data, AranetType type) {
+        this->type = type;
 
-            battery = data[6];
-            status = data[11];
-
-            return AR4_OK;
-        } else if (packing == AR4_PACKING_ARANET4) {
-            // aranet4
+        switch (type) {
+        case ARANET4:
             memcpy(&co2,         (uint8_t*) data + 0, 2);
             memcpy(&temperature, (uint8_t*) data + 2, 2);
             memcpy(&pressure,    (uint8_t*) data + 4, 2);
@@ -144,28 +176,67 @@ typedef struct AranetData {
             status = data[8];
 
             return AR4_OK;
+        case ARANET2:
+            memcpy(&temperature, (uint8_t*) data + 7, 2);
+            memcpy(&humidity,    (uint8_t*) data + 9, 2);
+            memcpy(&interval,    (uint8_t*) data + 2, 2);
+            memcpy(&ago,         (uint8_t*) data + 4, 2);
+
+            battery = data[6];
+            status = data[11];
+
+            return AR4_OK;
+        case ARANET_RADIATION:
+            memcpy(&interval,    (uint8_t*) data + 2, 2);
+            memcpy(&ago,         (uint8_t*) data + 4, 2);
+            battery = data[6];
+
+            memcpy(&radiation_rate, (uint8_t*) data + 7, 4);
+            memcpy(&radiation_total, (uint8_t*) data + 11, 8);
+            memcpy(&radiation_duration, (uint8_t*) data + 19, 8);
+            status = data[27];
+
+            return AR4_OK;
         }
 
+        // bad type
         return AR4_FAIL;
     }
 
     uint16_t getCO2() {
-        if (packing == AR4_PACKING_ARANET4) return co2;
+        if (type == ARANET4) return co2;
         return -1;
     }
 
     float getTemperature() {
-        return temperature / 20.0;
+        if (type == ARANET4 || type == ARANET2) return temperature / 20.0;
+        return -1.0;
     }
 
     float getPressure() {
-        if (packing == AR4_PACKING_ARANET4) return pressure / 10.0;
+        if (type == ARANET4) return pressure / 10.0;
         return -1.0;
     }
 
     float getHumidity() {
-        if (packing == AR4_PACKING_ARANET4) return humidity;
-        return humidity / 10.0;
+        if (type == ARANET2) return humidity / 10.0;
+        if (type == ARANET4) return humidity;
+        return -1.0;
+    }
+
+    uint32_t getRadiationRate() {
+        if (type == ARANET_RADIATION) return radiation_rate;
+        return 0;
+    }
+
+    uint64_t getRadiationTotal() {
+        if (type == ARANET_RADIATION) return radiation_total;
+        return 0;
+    }
+
+    uint64_t getRadiationDuration() {
+        if (type == ARANET_RADIATION) return radiation_duration;
+        return 0;
     }
 };
 #pragma pack(pop)
@@ -201,20 +272,61 @@ typedef struct AranetManufacturerData {
 
         // copy data
         if (cLength > sizeof(AranetManufacturerData)) cLength = sizeof(AranetManufacturerData);
-        memcpy(this, (void*) cManufacturerData, cLength - sizeof(AranetData));
-        data.parseFromAdvertisement(cManufacturerData);
+        memcpy(this, (void*) cManufacturerData, cLength); // -2 to drop id
 
         return true;
     }
 };
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+typedef struct AranetHistoryHeader {
+    uint8_t  param = 0;
+    uint16_t interval = 0;
+    uint16_t total_readings = 0;
+    uint16_t ago = 0;
+    uint16_t start = 0;
+    uint8_t count = 0;
+};
+#pragma pack(pop)
+
 // Small version of AranetData for history
-typedef struct AranetDataCompact {
-    uint16_t co2 = 0;
-    uint16_t temperature = 0;
-    uint16_t pressure = 0;
-    uint16_t humidity = 0;
+typedef union AranetDataCompact {
+    struct {
+        uint16_t co2;
+        uint16_t temperature;
+        uint16_t pressure;
+        uint16_t humidity;
+        uint32_t _reserved;
+    } aranet4;
+    struct  {
+        uint16_t rad_pulses;
+        uint16_t rad_dose;
+        uint16_t rad_dose_rate;
+        uint64_t rad_dose_integral;
+    } aranetr;
+
+    void set(uint8_t param, uint64_t value) {
+        switch (param) {
+        case AR4_PARAM_TEMPERATURE:
+            aranet4.temperature = value; break;
+        case AR4_PARAM_HUMIDITY:
+        case AR4_PARAM_HUMIDITY2:
+            aranet4.humidity = value; break;
+        case AR4_PARAM_PRESSURE:
+            aranet4.pressure = value; break;
+        case AR4_PARAM_CO2:
+            aranet4.co2 = value; break;
+        case AR4_PARAM_RADIATION_PULSES:
+            aranetr.rad_pulses = value; break;
+        case AR4_PARAM_RADIATION_DOSE:
+            aranetr.rad_dose = value; break;
+        case AR4_PARAM_RADIATION_DOSE_RATE:
+            aranetr.rad_dose_rate = value; break;
+        case AR4_PARAM_RADIATION_DOSE_INTEGRAL:
+            aranetr.rad_dose_integral = value; break;
+        }
+    }
 };
 
 class Aranet4Callbacks : public NimBLEClientCallbacks {
@@ -255,11 +367,16 @@ public:
     int         getHistoryPressure(int start, uint16_t count, uint16_t* data);
     int         getHistoryHumidity(int start, uint16_t count, uint16_t* data);
     int         getHistoryHumidity2(int start, uint16_t count, uint16_t* data);
-    int         getHistory(int start, uint16_t count, AranetDataCompact* data, uint8_t params = AR4_PARAM_FLAGS);
+    int         getHistory(uint16_t start, uint16_t count, AranetDataCompact* data, uint16_t params = AR4_PARAM_FLAGS);
+    int         getHistoryV1(int start, uint16_t count, AranetDataCompact* data, uint8_t params = AR4_PARAM_FLAGS);
+    int         getHistoryV2(uint16_t start, uint16_t count, AranetDataCompact* data, uint16_t params = AR4_PARAM_FLAGS);
     ar4_err_t   getStatus();
+
+    AranetType getType();
 
     bool isAranet4();
     bool isAranet2();
+    bool isAranetRadiation();
 private:
     NimBLEClient* pClient = nullptr;
     ar4_err_t status = AR4_OK;
@@ -274,7 +391,9 @@ private:
     uint16_t  getU16Value(NimBLERemoteService* service, NimBLEUUID charUuid);
 
     // History stuff
-    int       getHistoryByParam(int start, uint16_t count, uint16_t* data, uint8_t param);
+    int       getHistoryByParamV1(int start, uint16_t count, uint16_t* data, uint8_t param);
+    int       getHistoryByParamV2(uint16_t start, uint16_t count, AranetDataCompact* data, size_t size, uint8_t param);
+    int       getHistoryChunk(uint16_t start, uint8_t count, AranetDataCompact* data, uint8_t param);
     ar4_err_t subscribeHistory(uint8_t* cmd);
 
     static QueueHandle_t historyQueue;

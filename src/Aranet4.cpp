@@ -142,22 +142,25 @@ bool Aranet4::isConnected() {
  */
 AranetData Aranet4::getCurrentReadings() {
     AranetData data;
-    uint8_t packing = -1;
+    AranetType type = getType();
     uint8_t raw[100];
     uint16_t len = 100;
 
-    if (isAranet2()) {
-        status = getValue(getAranetService(), UUID_Aranet2_CurrentReadings, raw, &len);
-        packing = AR4_PACKING_ARANET2;
-    } else if (getAranetService()->getCharacteristic(UUID_Aranet4_CurrentReadingsDet)) {
+    switch (type) {
+    case ARANET4:
         status = getValue(getAranetService(), UUID_Aranet4_CurrentReadingsDet, raw, &len);
-        packing = AR4_PACKING_ARANET4;
-    } else {
+        break;
+    case ARANET2:
+    case ARANET_RADIATION:
+        status = getValue(getAranetService(), UUID_Aranet2_CurrentReadings, raw, &len);
+        break;
+    default:
         status = AR4_FAIL;
+        break;
     }
 
     if (status == AR4_OK)
-        status = data.parseFromGATT(raw, packing);
+        status = data.parseFromGATT(raw, type);
 
     return data;
 }
@@ -218,18 +221,38 @@ ar4_err_t Aranet4::getStatus() {
     return status;
 }
 
+AranetType Aranet4::getType() {
+    String name = getName();
+    char c0 = name.charAt(6);
+    char c1 = name.charAt(7);
+    char c2 = name.charAt(8);
+
+    if (c0 == '4') return ARANET4;
+    if (c0 == '2') return ARANET2;
+    if (c0 == (char) 0xE2 && c1 == (char) 0x98 && c2 == (char) 0xA2) return ARANET_RADIATION;
+
+    return UNKNOWN;
+}
+
 /**
  * @brief Check is is Aranet2
  */
 bool Aranet4::isAranet2() {
-    return (getAranetService()->getCharacteristic(UUID_Aranet2_CurrentReadings)) != nullptr;
+    getType() == ARANET2;
 }
 
 /**
  * @brief Check is is Aranet4
  */
 bool Aranet4::isAranet4() {
-    return (getAranetService()->getCharacteristic(UUID_Aranet4_CurrentReadings)) != nullptr;
+    getType() == ARANET4;
+}
+
+/**
+ * @brief Check is is Aranet Radiation
+ */
+bool Aranet4::isAranetRadiation() {
+    getType() == ARANET_RADIATION;
 }
 
 /**
@@ -426,7 +449,7 @@ ar4_err_t Aranet4::subscribeHistory(uint8_t* cmd) {
  * @param [in] param PArameter to fetch
  * @return Received point count
  */
-int Aranet4::getHistoryByParam(int start, uint16_t count, uint16_t* data, uint8_t param) {
+int Aranet4::getHistoryByParamV1(int start, uint16_t count, uint16_t* data, uint8_t param) {
     if (start < 1) start = 1;
 
     // id 1 is oldest
@@ -464,7 +487,7 @@ int Aranet4::getHistoryByParam(int start, uint16_t count, uint16_t* data, uint8_
  * @return Received point count
  */
 int Aranet4::getHistoryCO2(int start, uint16_t count, uint16_t* data) {
-    return getHistoryByParam(start, count, data, AR4_PARAM_CO2);
+    return getHistoryByParamV1(start, count, data, AR4_PARAM_CO2);
 }
 
 /**
@@ -475,7 +498,7 @@ int Aranet4::getHistoryCO2(int start, uint16_t count, uint16_t* data) {
  * @return Received point count
  */
 int Aranet4::getHistoryTemperature(int start, uint16_t count, uint16_t* data) {
-    return getHistoryByParam(start, count, data, AR4_PARAM_TEMPERATURE);
+    return getHistoryByParamV1(start, count, data, AR4_PARAM_TEMPERATURE);
 }
 
 /**
@@ -486,7 +509,7 @@ int Aranet4::getHistoryTemperature(int start, uint16_t count, uint16_t* data) {
  * @return Received point count
  */
 int Aranet4::getHistoryPressure(int start, uint16_t count, uint16_t* data) {
-    return getHistoryByParam(start, count, data, AR4_PARAM_PRESSURE);
+    return getHistoryByParamV1(start, count, data, AR4_PARAM_PRESSURE);
 }
 
 /**
@@ -497,7 +520,7 @@ int Aranet4::getHistoryPressure(int start, uint16_t count, uint16_t* data) {
  * @return Received point count
  */
 int Aranet4::getHistoryHumidity(int start, uint16_t count, uint16_t* data) {
-    return getHistoryByParam(start, count, data, AR4_PARAM_HUMIDITY);
+    return getHistoryByParamV1(start, count, data, AR4_PARAM_HUMIDITY);
 }
 
 /**
@@ -508,7 +531,7 @@ int Aranet4::getHistoryHumidity(int start, uint16_t count, uint16_t* data) {
  * @return Received point count
  */
 int Aranet4::getHistoryHumidity2(int start, uint16_t count, uint16_t* data) {
-    return getHistoryByParam(start, count, data, AR4_PARAM_HUMIDITY2);
+    return getHistoryByParamV1(start, count, data, AR4_PARAM_HUMIDITY2);
 }
 
 /**
@@ -518,40 +541,142 @@ int Aranet4::getHistoryHumidity2(int start, uint16_t count, uint16_t* data) {
  * @param [out] data Pointer to data array, whre results will be stored
  * @return Received point count (smallest)
  */
-int Aranet4::getHistory(int start, uint16_t count, AranetDataCompact* data, uint8_t flags) {
+int Aranet4::getHistoryV1(int start, uint16_t count, AranetDataCompact* data, uint8_t flags) {
     uint16_t* temp = (uint16_t*) malloc(count * sizeof(uint16_t));
     int ret = count;
     int result = 0;
 
     if (flags & AR4_PARAM_CO2_FLAG) {
         result = getHistoryCO2(start, count, temp);
-        for (int i = 0; i < result; i++) data[i].co2 = temp[i];
+        for (int i = 0; i < result; i++) data[i].aranet4.co2 = temp[i];
         if (result < ret) ret = result;
     }
 
     if (flags & AR4_PARAM_TEMPERATURE_FLAG) {
         result = getHistoryTemperature(start, count, temp);
-        for (int i = 0; i < result; i++) data[i].temperature = temp[i];
+        for (int i = 0; i < result; i++) data[i].aranet4.temperature = temp[i];
         if (result < ret) ret = result;
     }
 
     if (flags & AR4_PARAM_PRESSURE_FLAG) {
         result = getHistoryPressure(start, count, temp);
-        for (int i = 0; i < result; i++) data[i].pressure = temp[i];
+        for (int i = 0; i < result; i++) data[i].aranet4.pressure = temp[i];
         if (result < ret) ret = result;
     }
 
     if (flags & AR4_PARAM_HUMIDITY2_FLAG) {
         result = getHistoryHumidity2(start, count, temp);
-        for (int i = 0; i < result; i++) data[i].humidity = temp[i];
+        for (int i = 0; i < result; i++) data[i].aranet4.humidity = temp[i];
         if (result < ret) ret = result;
     } else if (flags & AR4_PARAM_HUMIDITY_FLAG) {
         result = getHistoryHumidity(start, count, temp);
-        for (int i = 0; i < result; i++) data[i].humidity = temp[i];
+        for (int i = 0; i < result; i++) data[i].aranet4.humidity = temp[i];
         if (result < ret) ret = result;
     }
 
     free(temp);
 
     return ret;
+}
+
+/**
+ * @brief Reads all history data in to array
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @return Received point count (smallest)
+ */
+int Aranet4::getHistoryV2(uint16_t start, uint16_t count, AranetDataCompact* data, uint16_t params) {
+    int ret = count;
+    int result = 0;
+
+    for (uint16_t param = 1; param < AR4_PARAM_MAX; param++) {
+        uint16_t mask = 1 << (param - 1);
+        if (params & mask) {
+            result = getHistoryChunk(start, count, data, param);
+            if (result < ret) ret = result;
+        }
+    }
+
+    return ret;
+}
+
+int Aranet4::getHistoryChunk(uint16_t start, uint8_t count, AranetDataCompact* data, uint8_t param) {
+    int end = start + count;
+    int pos = 0;
+    AranetHistoryHeader hdr;
+    uint8_t buffer[256];
+    uint16_t len = 256;
+
+    uint8_t flen = 2;
+
+    switch (param){
+    case AR4_PARAM_HUMIDITY:
+        flen = 1;
+        break;
+    case AR4_PARAM_RADIATION_DOSE:
+    case AR4_PARAM_RADIATION_DOSE_RATE:
+        flen = 3;
+        break;
+    case AR4_PARAM_RADIATION_DOSE_INTEGRAL:
+        flen = 8;
+        break;
+    }
+
+    while (start < end) {
+        buffer[0] = 0x61;              // command
+        buffer[1] = param;             // parameter
+        memcpy(buffer + 2, &start, 2); // start addr
+
+        // write cmd
+        status = writeCmd(buffer, 4);
+
+        if (status != AR4_OK) {
+            Serial.println("History CMD failed");
+            return -1;
+        }
+
+        // read history data
+        status = getValue(getAranetService(), UUID_Aranet4_History, buffer, &len);
+
+        if (status != AR4_OK || len < sizeof(AranetHistoryHeader)) {
+            Serial.println("History Read failed");
+            return -1;
+        }
+
+        // process history data
+        memcpy(&hdr, buffer, sizeof(AranetHistoryHeader));
+        uint8_t* histptr = buffer + 10;
+        uint8_t i = 0; // record id
+
+        uint64_t val;
+        while (start < end && i < hdr.count) {
+            memcpy(&val, histptr, flen);
+            data[pos].set(param, val);
+            histptr += flen;
+            start++; i++; pos++;
+        }
+    }    
+
+    return pos;
+}
+
+/**
+ * @brief Reads all history data in to array (autodetect v1 or v2)
+ * @param [in] start Start index
+ * @param [in] count Data points to read
+ * @param [out] data Pointer to data array, whre results will be stored
+ * @return Received point count (smallest)
+ */
+int Aranet4::getHistory(uint16_t start, uint16_t count, AranetDataCompact* data, uint16_t params) {
+    NimBLERemoteService* pRemoteService = getAranetService();
+    if (pRemoteService == nullptr) {
+        return 0;
+    }
+
+    NimBLERemoteCharacteristic* pRemoteCharacteristic = pRemoteService->getCharacteristic(UUID_Aranet4_History);
+    if (pRemoteCharacteristic) {
+        return getHistoryV2(start, count, data, params);
+    }
+    return getHistoryV1(start, count, data, params);
 }
