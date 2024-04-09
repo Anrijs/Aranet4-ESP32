@@ -108,51 +108,41 @@ typedef struct AranetData {
     uint64_t radiation_total = 0;
     uint64_t radiation_duration = 0;
 
-    bool parseFromAdvertisement(uint8_t* data) {
-        if (data[2] == 33) data[2] = 0;
+    bool parseFromAdvertisement(uint8_t* data, AranetType type) {
+        int dp = 0;
 
-        switch (data[2]) {
-        case 0:
-            type = ARANET4; break;
-        case 1:
-            type = ARANET2; break;
-        case 2:
-            type = ARANET_RADIATION; break;
-        default:
-            type = UNKNOWN; break;
-        }
-
+        this->type = type;
         switch (type) {
         case ARANET4:
-            memcpy(&co2,         (uint8_t*) data + 10, 2);
-            memcpy(&temperature, (uint8_t*) data + 12, 2);
-            memcpy(&pressure,    (uint8_t*) data + 14, 2);
-            memcpy(&interval,    (uint8_t*) data + 19, 2);
-            memcpy(&ago,         (uint8_t*) data + 21, 2);
-            humidity = data[16];
-            battery = data[17];
-            status = data[18];
+            memcpy(&co2,         (uint8_t*) data + 8, 2);
+            memcpy(&temperature, (uint8_t*) data + 10, 2);
+            memcpy(&pressure,    (uint8_t*) data + 12, 2);
+            memcpy(&interval,    (uint8_t*) data + 17, 2);
+            memcpy(&ago,         (uint8_t*) data + 19, 2);
+            humidity = data[14];
+            battery = data[15];
+            status = data[16];
             return true;
         case ARANET2:
-            memcpy(&temperature, (uint8_t*) data + 12, 2);
-            memcpy(&humidity,    (uint8_t*) data + 16, 2);
-            memcpy(&interval,    (uint8_t*) data + 21, 2);
-            memcpy(&ago,         (uint8_t*) data + 23, 2);
-            battery = data[19];
-            status = data[20];
+            memcpy(&temperature, (uint8_t*) data + 10, 2);
+            memcpy(&humidity,    (uint8_t*) data + 14, 2);
+            memcpy(&interval,    (uint8_t*) data + 19, 2);
+            memcpy(&ago,         (uint8_t*) data + 21, 2);
+            battery = data[17];
+            status = data[18];
             return true;
         case ARANET_RADIATION:
             // Preclear. Advertisement uses smaller datatypes than GATT
             radiation_rate = 0;
             radiation_total = 0;
             radiation_duration = 0;
-            memcpy(&radiation_total,    (uint8_t*) data + 8, 4);
-            memcpy(&radiation_duration, (uint8_t*) data + 12, 4);
-            memcpy(&radiation_rate,     (uint8_t*) data + 16, 2);
-            battery = data[19];
-            //status = data[??];
+
+            memcpy(&radiation_total,    (uint8_t*) data + 6, 4);
+            memcpy(&radiation_duration, (uint8_t*) data + 10, 4);
+            memcpy(&radiation_rate,     (uint8_t*) data + 14, 2);
+            battery = data[17];
             memcpy(&interval,    (uint8_t*) data + 21, 2);
-            memcpy(&ago,         (uint8_t*) data + 23, 2);
+            memcpy(&ago,         (uint8_t*) data + 19, 2);
             return true;
         }
 
@@ -244,12 +234,17 @@ typedef struct AranetData {
 #pragma pack(push, 1)
 typedef struct AranetManufacturerData {
     uint16_t manufacturer_id;
-    uint8_t disconnected : 1,
-            __unknown1   : 1,
-            calib_state  : 2,
-            dfu_mode     : 1,
-            integrations : 1,
-            __unknown2   : 2;
+    union {
+        uint8_t all;
+        struct {
+            uint8_t disconnected : 1;
+            uint8_t __unknown1   : 1;
+            uint8_t calib_state  : 2;
+            uint8_t dfu_mode     : 1;
+            uint8_t integrations : 1;
+            uint8_t __unknown2   : 2;
+        } bits;
+    } flags;
     struct {
         uint8_t  patch;
         uint8_t  minor;
@@ -264,15 +259,41 @@ typedef struct AranetManufacturerData {
         std::string strManufacturerData = adv->getManufacturerData();
         int cLength = strManufacturerData.length();
 
-        uint8_t cManufacturerData[100];
-        strManufacturerData.copy((char *) cManufacturerData, cLength, 0);
+        if (cLength < 8) return false; // not enough data
+        if (cLength > 100) cLength = 50; // trim
+
+        uint8_t cManufacturerData[50];
+        strManufacturerData.copy((char *) &manufacturer_id, 2, 0);
+        strManufacturerData.copy((char *) cManufacturerData, cLength, 2);
 
         // check manufacturer id
-        if(*(uint16_t*) cManufacturerData != ARANET4_MANUFACTURER_ID) return false;
+        if(manufacturer_id != ARANET4_MANUFACTURER_ID) return false;
 
-        // copy data
-        if (cLength > sizeof(AranetManufacturerData)) cLength = sizeof(AranetManufacturerData);
-        memcpy(this, (void*) cManufacturerData, cLength); // -2 to drop id
+        int idx = 1;
+        // TODO: Check by name
+        if (cLength == 9 || cLength == 24) {
+            idx = 0;
+            data.type = AranetType::ARANET4;
+        } else if (cManufacturerData[0] == 1) {
+            data.type = AranetType::ARANET2;
+        } else if (cManufacturerData[0] == 2) {
+            data.type = AranetType::ARANET_RADIATION;
+        } else {
+            data.type = AranetType::UNKNOWN;
+            return false;
+        }
+
+        this->flags.all = cManufacturerData[idx + 0];
+        this->version.patch = cManufacturerData[idx + 1];
+        this->version.minor = cManufacturerData[idx + 2];
+        this->version.major = cManufacturerData[idx + 3] | (cManufacturerData[idx + 4] << 8);
+        this->hw_rev = cManufacturerData[idx + 4];
+        this->__unknown3 = cManufacturerData[idx + 6];
+        this->packing = cManufacturerData[idx + 7];
+
+        if (this->flags.bits.integrations) {
+            data.parseFromAdvertisement(cManufacturerData, data.type);
+        }
 
         return true;
     }
