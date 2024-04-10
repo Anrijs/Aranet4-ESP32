@@ -141,8 +141,8 @@ typedef struct AranetData {
             memcpy(&radiation_duration, (uint8_t*) data + 10, 4);
             memcpy(&radiation_rate,     (uint8_t*) data + 14, 2);
             battery = data[17];
-            memcpy(&interval,    (uint8_t*) data + 21, 2);
-            memcpy(&ago,         (uint8_t*) data + 19, 2);
+            memcpy(&interval,    (uint8_t*) data + 19, 2);
+            memcpy(&ago,         (uint8_t*) data + 21, 2);
             return true;
         }
 
