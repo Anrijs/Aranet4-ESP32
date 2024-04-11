@@ -305,14 +305,14 @@ typedef struct {
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct AranetHistoryHeader {
+typedef struct {
     uint8_t  param = 0;
     uint16_t interval = 0;
     uint16_t total_readings = 0;
     uint16_t ago = 0;
     uint16_t start = 0;
     uint8_t count = 0;
-};
+} AranetHistoryHeader;
 #pragma pack(pop)
 
 // Small version of AranetData for history
