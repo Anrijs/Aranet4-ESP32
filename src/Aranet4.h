@@ -108,12 +108,13 @@ typedef struct {
     uint64_t radiation_total = 0;
     uint64_t radiation_duration = 0;
 
-    bool parseFromAdvertisement(uint8_t* data, AranetType type) {
+    bool parseFromAdvertisement(uint8_t* data, int len, AranetType type) {
         int dp = 0;
 
         this->type = type;
         switch (type) {
         case ARANET4:
+            if (len < 22) return false;
             memcpy(&co2,         (uint8_t*) data + 8, 2);
             memcpy(&temperature, (uint8_t*) data + 10, 2);
             memcpy(&pressure,    (uint8_t*) data + 12, 2);
@@ -124,6 +125,7 @@ typedef struct {
             status = data[16];
             return true;
         case ARANET2:
+            if (len < 24) return false;
             memcpy(&temperature, (uint8_t*) data + 10, 2);
             memcpy(&humidity,    (uint8_t*) data + 14, 2);
             memcpy(&interval,    (uint8_t*) data + 19, 2);
@@ -132,6 +134,8 @@ typedef struct {
             status = data[18];
             return true;
         case ARANET_RADIATION:
+            if (len < 24) return false;
+
             // Preclear. Advertisement uses smaller datatypes than GATT
             radiation_rate = 0;
             radiation_total = 0;
@@ -292,7 +296,7 @@ typedef struct {
         this->packing = cManufacturerData[idx + 7];
 
         if (this->flags.bits.integrations) {
-            data.parseFromAdvertisement(cManufacturerData, data.type);
+            data.parseFromAdvertisement(cManufacturerData, cLength, data.type);
         }
 
         return true;
