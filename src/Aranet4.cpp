@@ -238,21 +238,21 @@ AranetType Aranet4::getType() {
  * @brief Check is is Aranet2
  */
 bool Aranet4::isAranet2() {
-    getType() == ARANET2;
+    return getType() == ARANET2;
 }
 
 /**
  * @brief Check is is Aranet4
  */
 bool Aranet4::isAranet4() {
-    getType() == ARANET4;
+    return getType() == ARANET4;
 }
 
 /**
  * @brief Check is is Aranet Radiation
  */
 bool Aranet4::isAranetRadiation() {
-    getType() == ARANET_RADIATION;
+    return getType() == ARANET_RADIATION;
 }
 
 /**
