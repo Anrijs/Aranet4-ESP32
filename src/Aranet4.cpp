@@ -160,7 +160,7 @@ AranetData Aranet4::getCurrentReadings() {
     }
 
     if (status == AR4_OK)
-        status = data.parseFromGATT(raw, type);
+        status = data.parseFromGATT(raw, len, type);
 
     return data;
 }

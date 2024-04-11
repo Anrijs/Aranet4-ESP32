@@ -154,11 +154,12 @@ typedef struct {
         return false;
     }
 
-    ar4_err_t parseFromGATT(uint8_t* data, AranetType type) {
+    ar4_err_t parseFromGATT(uint8_t* data, int len, AranetType type) {
         this->type = type;
 
         switch (type) {
         case ARANET4:
+            if (len < 12) return AR4_FAIL;
             memcpy(&co2,         (uint8_t*) data + 0, 2);
             memcpy(&temperature, (uint8_t*) data + 2, 2);
             memcpy(&pressure,    (uint8_t*) data + 4, 2);
@@ -171,6 +172,7 @@ typedef struct {
 
             return AR4_OK;
         case ARANET2:
+            if (len < 12) return AR4_FAIL;
             memcpy(&temperature, (uint8_t*) data + 7, 2);
             memcpy(&humidity,    (uint8_t*) data + 9, 2);
             memcpy(&interval,    (uint8_t*) data + 2, 2);
@@ -181,6 +183,7 @@ typedef struct {
 
             return AR4_OK;
         case ARANET_RADIATION:
+            if (len < 28) return AR4_FAIL;
             memcpy(&interval,    (uint8_t*) data + 2, 2);
             memcpy(&ago,         (uint8_t*) data + 4, 2);
             battery = data[6];
