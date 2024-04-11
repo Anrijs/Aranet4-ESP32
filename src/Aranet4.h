@@ -92,7 +92,7 @@ enum AranetType {
 };
 
 #pragma pack(push, 1)
-typedef struct AranetData {
+typedef struct {
     AranetType type = UNKNOWN;
     uint16_t co2 = 0;
     uint16_t temperature = 0;
@@ -228,11 +228,11 @@ typedef struct AranetData {
         if (type == ARANET_RADIATION) return radiation_duration;
         return 0;
     }
-};
+} AranetData;
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-typedef struct AranetManufacturerData {
+typedef struct {
     uint16_t manufacturer_id;
     union {
         uint8_t all;
@@ -297,7 +297,7 @@ typedef struct AranetManufacturerData {
 
         return true;
     }
-};
+} AranetManufacturerData;
 #pragma pack(pop)
 
 #pragma pack(push, 1)
@@ -312,7 +312,7 @@ typedef struct AranetHistoryHeader {
 #pragma pack(pop)
 
 // Small version of AranetData for history
-typedef union AranetDataCompact {
+typedef union {
     struct {
         uint16_t co2;
         uint16_t temperature;
@@ -348,7 +348,7 @@ typedef union AranetDataCompact {
             aranetr.rad_dose_integral = value; break;
         }
     }
-};
+} AranetDataCompact;
 
 class Aranet4Callbacks : public NimBLEClientCallbacks {
     uint32_t onPassKeyRequest() {
