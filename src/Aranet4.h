@@ -102,6 +102,7 @@ typedef struct {
     uint8_t  status = 0;
     uint16_t interval = 0;
     uint16_t ago = 0;
+    uint8_t counter = 0;
 
     uint32_t radiation_pulses = 0;
     uint32_t radiation_rate = 0;
@@ -123,6 +124,7 @@ typedef struct {
             humidity = data[14];
             battery = data[15];
             status = data[16];
+            counter = data[21];
             return true;
         case ARANET2:
             if (len < 24) return false;
@@ -132,6 +134,7 @@ typedef struct {
             memcpy(&ago,         (uint8_t*) data + 21, 2);
             battery = data[17];
             status = data[18];
+            counter = data[23];
             return true;
         case ARANET_RADIATION:
             if (len < 24) return false;
@@ -147,6 +150,7 @@ typedef struct {
             battery = data[17];
             memcpy(&interval,    (uint8_t*) data + 19, 2);
             memcpy(&ago,         (uint8_t*) data + 21, 2);
+            counter = data[23];
             return true;
         }
 
