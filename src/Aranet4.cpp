@@ -649,7 +649,7 @@ int Aranet4::getHistoryChunk(uint16_t start, uint8_t count, AranetDataCompact* d
         uint8_t* histptr = buffer + 10;
         uint8_t i = 0; // record id
 
-        uint64_t val;
+        uint64_t val = 0;
         while (start < end && i < hdr.count) {
             memcpy(&val, histptr, flen);
             data[pos].set(param, val);
