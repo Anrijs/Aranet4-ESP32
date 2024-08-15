@@ -72,6 +72,15 @@ void loop() {
                     Serial.printf("Interval:     %i s\n",   mfdata.data.interval);
                     Serial.printf("Ago:          %i s\n",   mfdata.data.ago);
                     break;
+                case ARANET_RADON:
+                    Serial.printf("Concentration %i Bq/m3\n", mfdata.data.radon_concentration / 1000.0);
+                    Serial.printf("Temperature:  %.2f C\n", mfdata.data.temperature / 20.0);
+                    Serial.printf("Pressure:     %.1f C\n", mfdata.data.pressure / 10.0);
+                    Serial.printf("Humidity:     %.1f %%\n", mfdata.data.humidity / 10.0);
+                    Serial.printf("Battery:      %i %%\n",  mfdata.data.battery);
+                    Serial.printf("Interval:     %i s\n",   mfdata.data.interval);
+                    Serial.printf("Ago:          %i s\n",   mfdata.data.ago);
+                    break;
                 default:
                     Serial.println("Read failed: unknown type");
                     break;

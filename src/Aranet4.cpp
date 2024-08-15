@@ -152,6 +152,7 @@ AranetData Aranet4::getCurrentReadings() {
         break;
     case ARANET2:
     case ARANET_RADIATION:
+    case ARANET_RADON:
         status = getValue(getAranetService(), UUID_Aranet2_CurrentReadings, raw, &len);
         break;
     default:
@@ -230,6 +231,7 @@ AranetType Aranet4::getType() {
     if (c0 == '4') return ARANET4;
     if (c0 == '2') return ARANET2;
     if (c0 == (char) 0xE2 && c1 == (char) 0x98 && c2 == (char) 0xA2) return ARANET_RADIATION;
+    if (c0 == 'R' && c1 == 'n') return ARANET_RADON;
 
     return UNKNOWN;
 }
@@ -254,6 +256,13 @@ bool Aranet4::isAranet4() {
 bool Aranet4::isAranetRadiation() {
     return getType() == ARANET_RADIATION;
 }
+/**
+ * @brief Check is is Aranet Radon
+ */
+bool Aranet4::isAranetRadon() {
+    getType() == ARANET_RADON;
+}
+
 
 /**
  * @brief Reads raw data from Aranet4
@@ -617,6 +626,9 @@ int Aranet4::getHistoryChunk(uint16_t start, uint8_t count, AranetDataCompact* d
     case AR4_PARAM_RADIATION_DOSE:
     case AR4_PARAM_RADIATION_DOSE_RATE:
         flen = 3;
+        break;
+    case AR4_PARAM_RADON_CONCENTRATION:
+        flen = 4;
         break;
     case AR4_PARAM_RADIATION_DOSE_INTEGRAL:
         flen = 8;

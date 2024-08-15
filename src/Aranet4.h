@@ -34,7 +34,8 @@ typedef uint16_t ar4_err_t;
 #define AR4_PARAM_RADIATION_DOSE           7
 #define AR4_PARAM_RADIATION_DOSE_RATE      8
 #define AR4_PARAM_RADIATION_DOSE_INTEGRAL  9
-#define AR4_PARAM_MAX                      10
+#define AR4_PARAM_RADON_CONCENTRATION      10
+#define AR4_PARAM_MAX                      11
 
 #define AR4_NO_DATA_FOR_PARAM   -1
 
@@ -48,11 +49,13 @@ typedef uint16_t ar4_err_t;
 #define AR4_PARAM_RADIATION_DOSE_FLAG            1 << (AR4_PARAM_RADIATION_DOSE - 1)
 #define AR4_PARAM_RADIATION_DOSE_RATE_FLAG       1 << (AR4_PARAM_RADIATION_DOSE_RATE - 1)
 #define AR4_PARAM_RADIATiON_DOSE_INTEGRAL_FLAG   1 << (AR4_PARAM_RADIATION_DOSE_INTEGRAL - 1)
+#define AR4_PARAM_RADON_FLAG         1 << (AR4_PARAM_RADON_CONCENTRATION - 1)
 
 
-#define AR2_PARAM_FLAGS  AR4_PARAM_TEMPERATURE_FLAG | AR4_PARAM_HUMIDITY2_FLAG
-#define AR4_PARAM_FLAGS  AR4_PARAM_TEMPERATURE_FLAG | AR4_PARAM_HUMIDITY_FLAG | AR4_PARAM_PRESSURE_FLAG | AR4_PARAM_CO2_FLAG
-#define ARR_PARAM_FLAGS  AR4_PARAM_RADIATION_DOSE_RATE_FLAG | AR4_PARAM_RADIATiON_DOSE_INTEGRAL_FLAG
+#define AR2_PARAM_FLAGS   AR4_PARAM_TEMPERATURE_FLAG | AR4_PARAM_HUMIDITY2_FLAG
+#define AR4_PARAM_FLAGS   AR4_PARAM_TEMPERATURE_FLAG | AR4_PARAM_HUMIDITY_FLAG | AR4_PARAM_PRESSURE_FLAG | AR4_PARAM_CO2_FLAG
+#define ARR_PARAM_FLAGS   AR4_PARAM_RADIATION_DOSE_RATE_FLAG | AR4_PARAM_RADIATiON_DOSE_INTEGRAL_FLAG
+#define ARRN_PARAM_FLAGS  AR4_PARAM_TEMPERATURE_FLAG | AR4_PARAM_HUMIDITY2_FLAG | AR4_PARAM_PRESSURE_FLAG | AR4_PARAM_RADON_FLAG
 
 // Service UUIDs
 static NimBLEUUID UUID_Aranet4_Old  ("f0cd1400-95da-4f4b-9ac8-aa55d312af0c");
@@ -88,6 +91,7 @@ enum AranetType {
     ARANET4 = 0,
     ARANET2 = 1,
     ARANET_RADIATION = 2,
+    ARANET_RADON = 3,
     UNKNOWN = 255
 };
 
@@ -108,6 +112,8 @@ typedef struct {
     uint32_t radiation_rate = 0;
     uint64_t radiation_total = 0;
     uint64_t radiation_duration = 0;
+
+    uint32_t radon_concentration = 0;
 
     bool parseFromAdvertisement(uint8_t* data, int len, AranetType type) {
         int dp = 0;
@@ -152,6 +158,18 @@ typedef struct {
             memcpy(&ago,         (uint8_t*) data + 21, 2);
             counter = data[23];
             return true;
+        case ARANET_RADON:
+            radiation_rate = 0;
+
+            memcpy(&radon_concentration, (uint8_t*) data + 8, 2);
+            memcpy(&temperature, (uint8_t*) data + 10, 2);
+            memcpy(&pressure,    (uint8_t*) data + 12, 2);
+            memcpy(&humidity,    (uint8_t*) data + 14, 2);
+            memcpy(&interval,    (uint8_t*) data + 19, 2);
+            memcpy(&ago,         (uint8_t*) data + 21, 2);
+            battery = data[17];
+            status = data[18];
+            return true;
         }
 
         // bad type
@@ -192,10 +210,19 @@ typedef struct {
             memcpy(&ago,         (uint8_t*) data + 4, 2);
             battery = data[6];
 
-            memcpy(&radiation_rate, (uint8_t*) data + 7, 4);
-            memcpy(&radiation_total, (uint8_t*) data + 11, 8);
+            memcpy(&radiation_rate,     (uint8_t*) data + 7, 4);
+            memcpy(&radiation_total,    (uint8_t*) data + 11, 8);
             memcpy(&radiation_duration, (uint8_t*) data + 19, 8);
             status = data[27];
+
+            return AR4_OK;
+        case ARANET_RADON:
+            memcpy(&temperature,         (uint8_t*) data + 7, 2);
+            memcpy(&pressure,            (uint8_t*) data + 9, 2);
+            memcpy(&humidity,            (uint8_t*) data + 11, 2);
+            memcpy(&radon_concentration, (uint8_t*) data + 13, 4);
+            battery = data[6];
+            status = data[17];
 
             return AR4_OK;
         }
@@ -210,17 +237,17 @@ typedef struct {
     }
 
     float getTemperature() {
-        if (type == ARANET4 || type == ARANET2) return temperature / 20.0;
+        if (type == ARANET4 || type == ARANET2 || type == ARANET_RADON) return temperature / 20.0;
         return -1.0;
     }
 
     float getPressure() {
-        if (type == ARANET4) return pressure / 10.0;
+        if (type == ARANET4 || type == ARANET_RADON) return pressure / 10.0;
         return -1.0;
     }
 
     float getHumidity() {
-        if (type == ARANET2) return humidity / 10.0;
+        if (type == ARANET2 || type == ARANET_RADON) return humidity / 10.0;
         if (type == ARANET4) return humidity;
         return -1.0;
     }
@@ -238,6 +265,11 @@ typedef struct {
     uint64_t getRadiationDuration() {
         if (type == ARANET_RADIATION) return radiation_duration;
         return 0;
+    }
+
+    uint16_t getRadonConcentration() {
+        if (type == ARANET_RADON) return radon_concentration;
+        return -1;
     }
 } AranetData;
 #pragma pack(pop)
@@ -289,6 +321,8 @@ typedef struct {
             data.type = AranetType::ARANET2;
         } else if (cManufacturerData[0] == 2) {
             data.type = AranetType::ARANET_RADIATION;
+        } else if (cManufacturerData[0] == 3) {
+            data.type = AranetType::ARANET_RADON;
         } else {
             data.type = AranetType::UNKNOWN;
             return false;
@@ -337,6 +371,12 @@ typedef union {
         uint16_t rad_dose_rate;
         uint64_t rad_dose_integral;
     } aranetr;
+    struct {
+        uint16_t temperature;
+        uint16_t pressure;
+        uint16_t humidity;
+        uint16_t radon_concentration;
+    } aranetrn;
 
     void set(uint8_t param, uint64_t value) {
         switch (param) {
@@ -409,6 +449,7 @@ public:
     bool isAranet4();
     bool isAranet2();
     bool isAranetRadiation();
+    bool isAranetRadon();
 private:
     NimBLEClient* pClient = nullptr;
     ar4_err_t status = AR4_OK;
