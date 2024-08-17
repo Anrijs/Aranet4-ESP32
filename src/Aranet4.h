@@ -169,6 +169,7 @@ typedef struct {
             memcpy(&ago,         (uint8_t*) data + 21, 2);
             battery = data[17];
             status = data[18];
+            counter = data[23];
             return true;
         }
 
@@ -372,10 +373,12 @@ typedef union {
         uint64_t rad_dose_integral;
     } aranetr;
     struct {
+        // TPH must match aranet4 struct byte order
+        uint16_t radon_concentration;
         uint16_t temperature;
         uint16_t pressure;
         uint16_t humidity;
-        uint16_t radon_concentration;
+        uint32_t _reserved;
     } aranetrn;
 
     void set(uint8_t param, uint64_t value) {
@@ -397,6 +400,8 @@ typedef union {
             aranetr.rad_dose_rate = value; break;
         case AR4_PARAM_RADIATION_DOSE_INTEGRAL:
             aranetr.rad_dose_integral = value; break;
+        case AR4_PARAM_RADON_CONCENTRATION:
+            aranetrn.radon_concentration = value; break;
         }
     }
 } AranetDataCompact;
