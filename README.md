@@ -1,12 +1,12 @@
 
 # Aranet4 ESP32 client
-This library allows you to read data from Aranet4 devices using Bluetooth.
+This library allows you to read data from Aranet4 devices using bluetooth.
 
 ## Requirements
-To save memory, this library is using NimBLE bluetooth stack. Install it from library manager or get it here: [h2zero/NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino)
+To save memory, this library is using NimBLE bluetooth stack. Install v1.4.3 (v2.x.x introduced breaking changes) from library manager, or get it here: [h2zero/NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino)
 
 ## Usage example
-1. Create bluetooth callback, to allow pairing. In this example, when PIN is requested, you must enter it in serial console:
+1. Create bluetooth callback to allow pairing. In this example, when PIN is requested, you must enter it in serial console:
 ```cpp
 class MyAranet4Callbacks: public Aranet4Callbacks {
     uint32_t onPinRequested() {
@@ -43,6 +43,6 @@ if (ar4.connect(addr, secure) == AR4_OK) {
 ar4.disconnect();
 ```
 
-You can set `bool secure=false;`, if Aranet4 is running v1.2.0 or later, with Smart Home Integrations enabled. This will skip pairing process. However, you will be only available to use `getCurrentReadings()` function. Geting history still requires device pairing/secure mode.
+You can set `bool secure=false;` if Aranet4 is running v1.2.0 or later, with Smart Home Integrations enabled. This will skip pairing process. However, you will be only available to use `getCurrentReadings()` function. Getting history still requires device pairing/secure mode.
 
 Measurement data is stored in original binary format. This means temperature must be divided by 20 and pressure must be divided by 10 to get correct values.
